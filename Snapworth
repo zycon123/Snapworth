@@ -1,0 +1,9 @@
+unzip snapworth_v1_1_github_ready.zip
+cd snapworth_v1_1_github_ready
+
+git init
+git remote add origin https://github.com/zycon123/Snapworth.git
+git branch -M main
+git add .
+git commit -m "Add SnapWorth v1.1 project"
+git push -u origin main --force

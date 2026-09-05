@@ -282,11 +282,10 @@ $('identify').onclick=async()=>{
   $('conf').textContent=
    Math.round((d.confidence||.5)*100)+'% confidence';
 
-  $('query').value=
- d.search_query
- || [d.brand,d.model].filter(Boolean).join(' ')
- || d.item_name
- || '';
+$('query').value=
+ $('market').value==='NORWAY'
+ ? (d.search_query_no || d.search_query || [d.brand,d.model].filter(Boolean).join(' ') || d.item_name || '')
+ : (d.search_query || [d.brand,d.model].filter(Boolean).join(' ') || d.item_name || '');
 
   $('identifyCard').classList.remove('hidden');
   $('identifyCard').scrollIntoView({behavior:'smooth'});
@@ -322,13 +321,17 @@ $('ebaySearchBtn').onclick=()=>openSearch('https://www.ebay.com/sch/i.html?_nkw=
 $('shoppingSearchBtn').onclick=()=>openSearch('https://www.google.com/search?tbm=shop&q=');
 $('imagesSearchBtn').onclick=()=>openSearch('https://www.google.com/search?tbm=isch&q=');
 document.getElementById("finnSearchBtn")?.addEventListener("click",()=>{
-  const q=encodeURIComponent(document.getElementById("query").value.trim());
+  const q=encodeURIComponent(
+  (identified?.search_query_no || document.getElementById("query").value).trim()
+);
   if(!q)return;
   window.open(`https://www.finn.no/bap/forsale/search.html?q=${q}`,"_blank");
 });
 
 document.getElementById("facebookSearchBtn")?.addEventListener("click",()=>{
-  const q=encodeURIComponent(document.getElementById("query").value.trim());
+  const q=encodeURIComponent(
+  (identified?.search_query_no || document.getElementById("query").value).trim()
+);
   if(!q)return;
   window.open(`https://www.facebook.com/marketplace/search/?query=${q}`,"_blank");
 });

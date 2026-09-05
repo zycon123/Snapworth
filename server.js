@@ -198,7 +198,7 @@ Rules:
 - Prefer exact brand + model over a generic description when supported.
 - If text or a model label may exist but is not readable, set needs_more_photos to true.
 - If the item is generic, say so.
-- - search_query should be optimized for international resale search, usually brand + model + product type.
+- search_query should be optimized for international resale search, usually brand + model + product type.
 - search_query_no must be written for Norwegian buyers and Norwegian marketplace terminology.
 - Translate the generic product type into Norwegian, but NEVER translate brand names, model names, model numbers, product codes or proper product names.
 - Example: "Nintendo GameCube Controller" -> search_query_no: "Nintendo GameCube kontroller".

@@ -313,7 +313,17 @@ $('googleSearchBtn').onclick=()=>openSearch('https://www.google.com/search?q=');
 $('ebaySearchBtn').onclick=()=>openSearch('https://www.ebay.com/sch/i.html?_nkw=');
 $('shoppingSearchBtn').onclick=()=>openSearch('https://www.google.com/search?tbm=shop&q=');
 $('imagesSearchBtn').onclick=()=>openSearch('https://www.google.com/search?tbm=isch&q=');
+document.getElementById("finnSearchBtn")?.addEventListener("click",()=>{
+  const q=encodeURIComponent(document.getElementById("query").value.trim());
+  if(!q)return;
+  window.open(`https://www.finn.no/bap/forsale/search.html?q=${q}`,"_blank");
+});
 
+document.getElementById("facebookSearchBtn")?.addEventListener("click",()=>{
+  const q=encodeURIComponent(document.getElementById("query").value.trim());
+  if(!q)return;
+  window.open(`https://www.facebook.com/marketplace/search/?query=${q}`,"_blank");
+});
 $('compsBtn').onclick=async()=>{
  const q=$('query').value.trim();
  if(!q)return;

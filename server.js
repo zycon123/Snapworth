@@ -209,19 +209,7 @@ Rules:
 });
 
 const marketplaceMap={
- const requestedMarket=String(req.query.market||"NORWAY");
-
-if(requestedMarket==="NORWAY"){
- return res.status(503).json({
-  pricingUnavailable:true,
-  source:"Norwegian market",
-  currency:"NOK",
-  market:"NORWAY",
-  error:"Automatic Norwegian market pricing is not connected yet. Use FINN.no and Facebook Marketplace search to check current Norwegian listings."
- });
-}
-
-const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
+ EBAY_US:{id:"EBAY_US",currency:"USD"},
  EBAY_GB:{id:"EBAY_GB",currency:"GBP"},
  EBAY_DE:{id:"EBAY_DE",currency:"EUR"}
 };
@@ -232,6 +220,7 @@ const norwayMarket={
  name:"Norway"
 };
 
+async function ebayToken(){
 async function ebayToken(){
  const id=process.env.EBAY_CLIENT_ID, secret=process.env.EBAY_CLIENT_SECRET;
  if(!id||!secret)return null;
@@ -260,9 +249,20 @@ function demoComps(q,condition){
 
 app.get("/api/comps",async(req,res)=>{
  const q=String(req.query.q||"").trim();
- const market=marketplaceMap[req.query.market]||marketplaceMap.EBAY_US;
- const condition=Math.max(.4,Math.min(1,Number(req.query.condition)||1));
+const requestedMarket=String(req.query.market||"NORWAY");
+const condition=Math.max(.4,Math.min(1,Number(req.query.condition)||1));
 
+if(requestedMarket==="NORWAY"){
+ return res.status(503).json({
+  pricingUnavailable:true,
+  source:"Norwegian market",
+  currency:"NOK",
+  market:"NORWAY",
+  error:"Automatic Norwegian market pricing is not connected yet. Use FINN.no and Facebook Marketplace search to check current Norwegian listings."
+ });
+}
+
+const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
  if(!q){
   return res.status(400).json({error:"Missing search query."});
  }

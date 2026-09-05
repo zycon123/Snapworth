@@ -303,26 +303,95 @@ const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
    throw new Error(d?.errors?.[0]?.message||"eBay search failed");
   }
 
-  const terms=q.toLowerCase().split(/\s+/).filter(t=>t.length>1);
+    const terms=q
+    .toLowerCase()
+    .split(/\s+/)
+    .map(t=>t.replace(/[^a-z0-9]+/g,""))
+    .filter(t=>t.length>1);
+
+  const normalizedQuery=q.toLowerCase();
+
+  const accessoryWords=[
+    "memory card",
+    "memorycard",
+    "manual only",
+    "instruction booklet",
+    "booklet only",
+    "guide",
+    "strategy guide",
+    "carry case",
+    "carrying case",
+    "carry bag",
+    "bag only",
+    "case only",
+    "box only",
+    "artwork only",
+    "inlay only",
+    "sleeve only",
+    "stickers",
+    "sticker",
+    "no disc",
+    "no game",
+    "for parts",
+    "not working"
+  ];
+
+  const bundleWords=[
+    "pokemon box",
+    "bonus disc",
+    "bonus expansion disc",
+    "double pack",
+    "bundle",
+    "two disk",
+    "two disc",
+    "celebi"
+  ];
+
+  function containsPhrase(text,phrase){
+    return text.includes(phrase);
+  }
+
+  function phraseIsExpected(phrase){
+    return normalizedQuery.includes(phrase);
+  }
 
   const items=(d.itemSummaries||[])
    .map(x=>{
     const title=x.title||"";
     const low=title.toLowerCase();
+
     const matches=terms.filter(t=>low.includes(t)).length;
+    const matchScore=terms.length ? matches/terms.length : 0;
+
+    const unwantedAccessory=accessoryWords.some(
+      phrase=>containsPhrase(low,phrase) && !phraseIsExpected(phrase)
+    );
+
+    const unwantedBundle=bundleWords.some(
+      phrase=>containsPhrase(low,phrase) && !phraseIsExpected(phrase)
+    );
+
+    const wordPenalty=
+      unwantedAccessory ? 1 :
+      unwantedBundle ? 0.45 :
+      0;
+
+    const relevanceScore=Math.max(0,matchScore-wordPenalty);
 
     return {
-     title,
-     price:Number(x.price?.value),
-     condition:x.condition,
-     seller:x.seller?.username||"",
-     url:x.itemWebUrl,
-     matchScore:terms.length?matches/terms.length:0
+      title,
+      price:Number(x.price?.value),
+      condition:x.condition,
+      seller:x.seller?.username||"",
+      url:x.itemWebUrl,
+      matchScore:relevanceScore
     };
    })
-   .filter(x=>x.price>0&&x.matchScore>=0.5)
+   .filter(x=>
+      x.price>0 &&
+      x.matchScore>=0.72
+   )
    .sort((a,b)=>b.matchScore-a.matchScore);
-
   if(items.length<3){
    return res.status(422).json({
     pricingUnavailable:true,

@@ -254,5 +254,5 @@ app.get("/api/comps",async(req,res)=>{
  fallback.ebayPending=true;
  res.json(fallback);
  }
-
+});
 app.listen(process.env.PORT||3000,()=>console.log(`SnapWorth v0.3 running on http://localhost:${process.env.PORT||3000}`));

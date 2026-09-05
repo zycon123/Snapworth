@@ -220,11 +220,6 @@ const marketplaceMap={
  EBAY_DE:{id:"EBAY_DE",currency:"EUR"}
 };
 
-const norwayMarket={
- id:"NORWAY",
- currency:"NOK",
- name:"Norway"
-};
 
 async function ebayToken(){
  const id=process.env.EBAY_CLIENT_ID, secret=process.env.EBAY_CLIENT_SECRET;

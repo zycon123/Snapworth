@@ -287,8 +287,9 @@ const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
   url.searchParams.set("q",q);
   url.searchParams.set("limit","50");
   url.searchParams.set(
-   "filter",
-    conditions:{USED},buyingOptions:{FIXED_PRICE}
+  "filter",
+  "conditions:{USED},buyingOptions:{FIXED_PRICE}"
+);
   const r=await fetch(url,{
    headers:{
     "Authorization":`Bearer ${token}`,

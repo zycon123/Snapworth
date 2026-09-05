@@ -85,8 +85,15 @@ textarea{min-height:120px;resize:vertical}
     <div class="grid">
       <div class="full"><label class="small">Search query</label><input id="query"></div>
       <div><label class="small">Condition</label><select id="condition"><option value="1">Like new</option><option value=".94" selected>Very good</option><option value=".86">Good</option><option value=".74">Fair</option><option value=".58">Poor</option></select></div>
-      <div><label class="small">Marketplace</label><select id="market"><option value="EBAY_US">eBay US</option><option value="EBAY_GB">eBay UK</option><option value="EBAY_DE">eBay Germany</option></select></div>
-    </div>
+      <div>
+  <label class="small">Market</label>
+  <select id="market">
+    <option value="NORWAY" selected>🇳🇴 Norway — NOK</option>
+    <option value="EBAY_US">🇺🇸 eBay US — USD</option>
+    <option value="EBAY_GB">🇬🇧 eBay UK — GBP</option>
+    <option value="EBAY_DE">🇩🇪 eBay Germany — EUR</option>
+  </select>
+</div>
     <button id="compsBtn">🔎 Find comparable listings</button>
 
     <div style="margin-top:14px">

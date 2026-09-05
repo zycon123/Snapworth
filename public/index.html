@@ -316,6 +316,21 @@ function openSearch(base){
   if(!q) return alert('Identify an item first.');
   window.open(base + encodeURIComponent(q), '_blank', 'noopener,noreferrer');
 }
+ $('market').addEventListener('change',()=>{
+  if(!identified)return;
+
+  $('query').value=
+    $('market').value==='NORWAY'
+      ? (identified.search_query_no
+          || identified.search_query
+          || [identified.brand,identified.model].filter(Boolean).join(' ')
+          || identified.item_name
+          || '')
+      : (identified.search_query
+          || [identified.brand,identified.model].filter(Boolean).join(' ')
+          || identified.item_name
+          || '');
+});
 $('googleSearchBtn').onclick=()=>openSearch('https://www.google.com/search?q=');
 $('ebaySearchBtn').onclick=()=>openSearch('https://www.ebay.com/sch/i.html?_nkw=');
 $('shoppingSearchBtn').onclick=()=>openSearch('https://www.google.com/search?tbm=shop&q=');

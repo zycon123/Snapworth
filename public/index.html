@@ -197,8 +197,13 @@ $('photo').onchange=()=>{
 };
 
 $('identify').onclick=async()=>{
- if(!file)return;$('identify').disabled=true;$('status').textContent='Analyzing image…';
- const fd=new FormData();fd.append('image',file);
+ if(!file)return;
+ $('identify').disabled=true;
+ $('status').textContent='Analyzing image…';
+
+ try{
+  const compressed=await imageToUploadBlob(file);
+  const fd=new FormData();fd.append('image',file);
  try{
   const r=await fetch('/api/identify',{method:'POST',body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||'Failed');
   identified=d;$('name').textContent=d.item_name||'Unknown item';$('meta').textContent=[d.brand,d.model,d.category].filter(Boolean).join(' • ');$('conf').textContent=Math.round((d.confidence||.5)*100)+'% confidence';

@@ -241,11 +241,6 @@ function robustValuation(prices,condition=1){
  return {clean,stats:{median:med,q1:low,q3:high},valuation:{quick:fair*.88,fair,top:fair*1.10,low:low*condition,high:high*condition}};
 }
 
-function demoComps(q,condition){
- const base=580, vals=[499,525,549,575,599,610,625,649,690,1200];
- const items=vals.map((p,i)=>({title:`${q} comparable listing ${i+1}`,price:p,condition:i<3?"Used - Good":"Used - Very Good",seller:"Demo seller"}));
- const v=robustValuation(vals,condition);return {demo:true,source:"demo data",currency:"USD",count:v.clean.length,items,stats:v.stats,valuation:v.valuation};
-}
 
 app.get("/api/comps",async(req,res)=>{
  const q=String(req.query.q||"").trim();

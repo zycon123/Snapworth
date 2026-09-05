@@ -169,9 +169,37 @@ app.post("/api/identify",upload.single("image"),async(req,res)=>{
   const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Authorization":`Bearer ${process.env.OPENAI_API_KEY}`,"Content-Type":"application/json"},body:JSON.stringify({
    model:process.env.OPENAI_MODEL||"gpt-5.6-luna",
    input:[{role:"user",content:[
-    {type:"input_text",text:`Identify this resale item. Return ONLY valid JSON:
-{"item_name":"...","brand":"... or null","model":"... or null","category":"Electronics|Tools|Games & Consoles|Collectibles|Furniture|Car Parts|Clothing|Watches|Toys|Home & Appliances|Other","confidence":0.0,"notes":"short uncertainty notes"}
-Never invent a model number.`},
+    {type:"input_text",text:`You are the item-identification engine for a resale valuation app.
+
+Analyze the photo carefully. Pay special attention to:
+- visible brand names and logos
+- labels, stickers and printed text
+- model numbers, product codes and serial-like identifiers
+- distinctive shape, controls, ports, accessories and packaging
+- whether the item is generic or a specific branded product
+
+Return ONLY valid JSON in exactly this format:
+{
+  "item_name":"short resale-friendly product name",
+  "brand":"brand name or null",
+  "model":"exact model number/name or null",
+  "category":"Electronics|Tools|Games & Consoles|Collectibles|Furniture|Car Parts|Clothing|Watches|Toys|Home & Appliances|Other",
+  "confidence":0.0,
+  "notes":"brief explanation of uncertainty",
+  "search_query":"best concise marketplace search query",
+  "needs_more_photos":false,
+  "photo_request":"what additional photo would help, or null"
+}
+
+Rules:
+- Never invent a brand or model.
+- Only provide a model when it is visible or strongly identifiable from reliable visual evidence.
+- Prefer exact brand + model over a generic description when supported.
+- If text or a model label may exist but is not readable, set needs_more_photos to true.
+- If the item is generic, say so.
+- search_query should be optimized for resale search, usually brand + model + product type.
+- confidence must be between 0 and 1.
+- If another close-up photo of a label, underside, rear panel, packaging or logo would materially improve identification, explain exactly what photo is needed in photo_request.`},
     {type:"input_image",image_url:dataUrl}
    ]}]
   })});

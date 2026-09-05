@@ -343,10 +343,31 @@ document.getElementById("finnSearchBtn")?.addEventListener("click",()=>{
   window.open(`https://www.finn.no/recommerce/forsale/search?q=${q}`,"_blank");
 });
 
-document.getElementById("facebookSearchBtn")?.addEventListener("click",()=>{
-  const q=encodeURIComponent(
-  (identified?.search_query_no || document.getElementById("query").value).trim()
-);
+document.getElementById("facebookSearchBtn")?.addEventListener("click",async()=>{
+  const searchText=(
+    identified?.search_query_no ||
+    document.getElementById("query").value
+  ).trim();
+
+  if(!searchText)return;
+
+  try{
+    await navigator.clipboard.writeText(searchText);
+    alert(
+      `Søketeksten er kopiert:\n\n${searchText}\n\nFacebook Marketplace åpnes nå. Lim inn teksten i søkefeltet.`
+    );
+  }catch{
+    alert(
+      `Kopier denne søketeksten og lim den inn på Facebook Marketplace:\n\n${searchText}`
+    );
+  }
+
+  window.open(
+    "https://www.facebook.com/marketplace/",
+    "_blank",
+    "noopener,noreferrer"
+  );
+});
   if(!q)return;
   window.open(`https://www.facebook.com/marketplace/search/?query=${q}`,"_blank");
 });

@@ -273,9 +273,10 @@ $('identify').onclick=async()=>{
    Math.round((d.confidence||.5)*100)+'% confidence';
 
   $('query').value=
-   [d.brand,d.model].filter(Boolean).join(' ')
-   || d.item_name
-   || '';
+ d.search_query
+ || [d.brand,d.model].filter(Boolean).join(' ')
+ || d.item_name
+ || '';
 
   $('identifyCard').classList.remove('hidden');
   $('identifyCard').scrollIntoView({behavior:'smooth'});

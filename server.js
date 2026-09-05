@@ -302,8 +302,7 @@ const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
   if(!r.ok){
    throw new Error(d?.errors?.[0]?.message||"eBay search failed");
   }
-
-    const terms=q
+  const terms=q
     .toLowerCase()
     .split(/\s+/)
     .map(t=>t.replace(/[^a-z0-9]+/g,""))
@@ -315,8 +314,8 @@ const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
     "memory card",
     "memorycard",
     "manual only",
-    "instruction booklet",
     "booklet only",
+    "instruction booklet only",
     "guide",
     "strategy guide",
     "carry case",
@@ -328,8 +327,8 @@ const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
     "artwork only",
     "inlay only",
     "sleeve only",
-    "stickers",
     "sticker",
+    "stickers",
     "no disc",
     "no game",
     "for parts",
@@ -337,61 +336,116 @@ const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
   ];
 
   const bundleWords=[
-    "pokemon box",
-    "bonus disc",
-    "bonus expansion disc",
     "double pack",
     "bundle",
     "two disk",
     "two disc",
+    "bonus disc",
+    "bonus expansion disc",
+    "pokemon box",
     "celebi"
   ];
 
-  function containsPhrase(text,phrase){
-    return text.includes(phrase);
+  const premiumWords=[
+    "collector",
+    "collectors",
+    "mint",
+    "sealed",
+    "rare",
+    "complete in box",
+    " cib ",
+    "cib",
+    "complete edition"
+  ];
+
+  function queryHasAny(words){
+    return words.some(w=>normalizedQuery.includes(w));
   }
 
-  function phraseIsExpected(phrase){
-    return normalizedQuery.includes(phrase);
+  const queryWantsBundle=queryHasAny(bundleWords);
+  const queryWantsPremium=queryHasAny(premiumWords);
+
+  function regionPenalty(title){
+    const low=title.toLowerCase();
+
+    const explicitPAL=
+      low.includes(" pal ") ||
+      low.includes("uk pal") ||
+      low.includes("european version");
+
+    const explicitNTSC=
+      low.includes("ntsc") ||
+      low.includes("ntsc-u") ||
+      low.includes("usa version");
+
+    const explicitJapan=
+      low.includes("japan") ||
+      low.includes("japanese") ||
+      low.includes("ntsc-j");
+
+    // UK and Germany: prefer PAL, reject explicit NTSC/Japan variants.
+    if(requestedMarket==="EBAY_GB" || requestedMarket==="EBAY_DE"){
+      if(explicitNTSC || explicitJapan) return 0.45;
+      if(explicitPAL) return 0;
+    }
+
+    // US: reject explicit PAL/Japan variants.
+    if(requestedMarket==="EBAY_US"){
+      if(explicitPAL || explicitJapan) return 0.45;
+      if(explicitNTSC) return 0;
+    }
+
+    return 0;
   }
 
   const items=(d.itemSummaries||[])
-   .map(x=>{
-    const title=x.title||"";
-    const low=title.toLowerCase();
+    .map(x=>{
+      const title=x.title||"";
+      const low=title.toLowerCase();
 
-    const matches=terms.filter(t=>low.includes(t)).length;
-    const matchScore=terms.length ? matches/terms.length : 0;
+      const matches=terms.filter(t=>low.includes(t)).length;
+      const baseScore=terms.length ? matches/terms.length : 0;
 
-    const unwantedAccessory=accessoryWords.some(
-      phrase=>containsPhrase(low,phrase) && !phraseIsExpected(phrase)
-    );
+      let penalty=0;
 
-    const unwantedBundle=bundleWords.some(
-      phrase=>containsPhrase(low,phrase) && !phraseIsExpected(phrase)
-    );
+      // Wrong accessory instead of the actual item.
+      if(accessoryWords.some(word=>
+        low.includes(word) &&
+        !normalizedQuery.includes(word)
+      )){
+        penalty+=1;
+      }
 
-    const wordPenalty=
-      unwantedAccessory ? 1 :
-      unwantedBundle ? 0.45 :
-      0;
+      // Bundles are substantially different products.
+      if(!queryWantsBundle && bundleWords.some(word=>low.includes(word))){
+        penalty+=0.5;
+      }
 
-    const relevanceScore=Math.max(0,matchScore-wordPenalty);
+      // Collector/CIB premiums should not dominate a normal item search.
+      if(!queryWantsPremium && premiumWords.some(word=>low.includes(word))){
+        penalty+=0.32;
+      }
 
-    return {
-      title,
-      price:Number(x.price?.value),
-      condition:x.condition,
-      seller:x.seller?.username||"",
-      url:x.itemWebUrl,
-      matchScore:relevanceScore
-    };
-   })
-   .filter(x=>
+      penalty+=regionPenalty(title);
+
+      const relevanceScore=Math.max(0,baseScore-penalty);
+
+      return {
+        title,
+        price:Number(x.price?.value),
+        condition:x.condition,
+        seller:x.seller?.username||"",
+        url:x.itemWebUrl,
+        matchScore:Number(relevanceScore.toFixed(3))
+      };
+    })
+    .filter(x=>
+      Number.isFinite(x.price) &&
       x.price>0 &&
       x.matchScore>=0.72
-   )
-   .sort((a,b)=>b.matchScore-a.matchScore);
+    )
+    .sort((a,b)=>b.matchScore-a.matchScore);
+    
   if(items.length<3){
    return res.status(422).json({
     pricingUnavailable:true,

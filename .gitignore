@@ -1,0 +1,7 @@
+node_modules/
+.env
+*.log
+snapworth.db
+sessions.sqlite
+sessions.sqlite-*
+.DS_Store

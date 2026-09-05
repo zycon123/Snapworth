@@ -247,7 +247,12 @@ app.get("/api/comps",async(req,res)=>{
   const cleanedSet=new Set(v.clean.map(x=>String(x)));
   const usable=items.filter(x=>cleanedSet.has(String(x.price)));
   res.json({demo:false,source:"eBay Browse API",currency:market.currency,count:v.clean.length,items:usable,stats:v.stats,valuation:v.valuation});
- }catch(e){res.status(500).json({error:e.message})}
-});
+ }catch(e){
+ console.warn("eBay unavailable, using demo pricing:",e.message);
+ const fallback=demoComps(q,condition);
+ fallback.source="Demo pricing — eBay connection pending";
+ fallback.ebayPending=true;
+ res.json(fallback);
+ }
 
 app.listen(process.env.PORT||3000,()=>console.log(`SnapWorth v0.3 running on http://localhost:${process.env.PORT||3000}`));

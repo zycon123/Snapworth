@@ -213,46 +213,96 @@ function demoComps(q,condition){
 }
 
 app.get("/api/comps",async(req,res)=>{
- const q=String(req.query.q||"").trim(), market=marketplaceMap[req.query.market]||marketplaceMap.EBAY_US, condition=Math.max(.4,Math.min(1,Number(req.query.condition)||1));
- if(!q)return res.status(400).json({error:"Missing search query."});
+ const q=String(req.query.q||"").trim();
+ const market=marketplaceMap[req.query.market]||marketplaceMap.EBAY_US;
+ const condition=Math.max(.4,Math.min(1,Number(req.query.condition)||1));
+
+ if(!q){
+  return res.status(400).json({error:"Missing search query."});
+ }
+
  try{
   const token=await ebayToken();
-  if(!token)return res.json(demoComps(q,condition));
+
+  if(!token){
+   return res.status(503).json({
+    pricingUnavailable:true,
+    source:"eBay not connected",
+    error:"Live market pricing is not available yet. eBay connection is pending."
+   });
+  }
+
   const url=new URL("https://api.ebay.com/buy/browse/v1/item_summary/search");
   url.searchParams.set("q",q);
   url.searchParams.set("limit","50");
-  // Keep comps closer to realistic consumer resale offers:
-  // used condition + fixed-price listings, then robust outlier trimming.
-  url.searchParams.set("filter","conditions:{USED|VERY_GOOD|GOOD|ACCEPTABLE},buyingOptions:{FIXED_PRICE}");
-  const r=await fetch(url,{headers:{"Authorization":`Bearer ${token}`,"X-EBAY-C-MARKETPLACE-ID":market.id}});
-  const d=await r.json();if(!r.ok)throw new Error(d?.errors?.[0]?.message||"eBay search failed");
+  url.searchParams.set(
+   "filter",
+   "conditions:{USED|VERY_GOOD|GOOD|ACCEPTABLE},buyingOptions:{FIXED_PRICE}"
+  );
+
+  const r=await fetch(url,{
+   headers:{
+    "Authorization":`Bearer ${token}`,
+    "X-EBAY-C-MARKETPLACE-ID":market.id
+   }
+  });
+
+  const d=await r.json();
+
+  if(!r.ok){
+   throw new Error(d?.errors?.[0]?.message||"eBay search failed");
+  }
+
   const terms=q.toLowerCase().split(/\s+/).filter(t=>t.length>1);
+
   const items=(d.itemSummaries||[])
-    .map(x=>{
-      const title=(x.title||"");
-      const low=title.toLowerCase();
-      const matches=terms.filter(t=>low.includes(t)).length;
-      return {
-        title,
-        price:Number(x.price?.value),
-        condition:x.condition,
-        seller:x.seller?.username||"",
-        url:x.itemWebUrl,
-        matchScore: terms.length ? matches/terms.length : 0
-      };
-    })
-    .filter(x=>x.price>0 && x.matchScore>=0.5)
-    .sort((a,b)=>b.matchScore-a.matchScore);
+   .map(x=>{
+    const title=x.title||"";
+    const low=title.toLowerCase();
+    const matches=terms.filter(t=>low.includes(t)).length;
+
+    return {
+     title,
+     price:Number(x.price?.value),
+     condition:x.condition,
+     seller:x.seller?.username||"",
+     url:x.itemWebUrl,
+     matchScore:terms.length?matches/terms.length:0
+    };
+   })
+   .filter(x=>x.price>0&&x.matchScore>=0.5)
+   .sort((a,b)=>b.matchScore-a.matchScore);
+
+  if(items.length<3){
+   return res.status(422).json({
+    pricingUnavailable:true,
+    source:"eBay Browse API",
+    error:"Not enough reliable comparable listings were found for this item."
+   });
+  }
+
   const v=robustValuation(items.map(x=>x.price),condition);
   const cleanedSet=new Set(v.clean.map(x=>String(x)));
   const usable=items.filter(x=>cleanedSet.has(String(x.price)));
-  res.json({demo:false,source:"eBay Browse API",currency:market.currency,count:v.clean.length,items:usable,stats:v.stats,valuation:v.valuation});
+
+  res.json({
+   demo:false,
+   source:"eBay Browse API",
+   currency:market.currency,
+   count:v.clean.length,
+   items:usable,
+   stats:v.stats,
+   valuation:v.valuation
+  });
+
  }catch(e){
- console.warn("eBay unavailable, using demo pricing:",e.message);
- const fallback=demoComps(q,condition);
- fallback.source="Demo pricing — eBay connection pending";
- fallback.ebayPending=true;
- res.json(fallback);
+  console.warn("eBay unavailable:",e.message);
+
+  res.status(503).json({
+   pricingUnavailable:true,
+   source:"eBay connection pending",
+   error:"Live market pricing is currently unavailable. Use Search this item to check current listings."
+  });
  }
 });
 app.listen(process.env.PORT||3000,()=>console.log(`SnapWorth v0.3 running on http://localhost:${process.env.PORT||3000}`));

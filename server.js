@@ -221,7 +221,6 @@ const norwayMarket={
 };
 
 async function ebayToken(){
-async function ebayToken(){
  const id=process.env.EBAY_CLIENT_ID, secret=process.env.EBAY_CLIENT_SECRET;
  if(!id||!secret)return null;
  const basic=Buffer.from(`${id}:${secret}`).toString("base64");

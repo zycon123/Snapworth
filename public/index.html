@@ -306,11 +306,71 @@ $('shoppingSearchBtn').onclick=()=>openSearch('https://www.google.com/search?tbm
 $('imagesSearchBtn').onclick=()=>openSearch('https://www.google.com/search?tbm=isch&q=');
 
 $('compsBtn').onclick=async()=>{
- const q=$('query').value.trim();if(!q)return;$('compsBtn').disabled=true;$('compsBtn').textContent='Searching marketplace…';
+ const q=$('query').value.trim();
+ if(!q)return;
+
+ $('compsBtn').disabled=true;
+ $('compsBtn').textContent='Searching marketplace…';
+
  try{
-  const r=await fetch('/api/comps?'+new URLSearchParams({q,market:$('market').value,condition:$('condition').value}));
-  const d=await r.json();if(!r.ok)throw new Error(d.error||'Search failed');renderValue(d,q);
- }catch(e){alert(e.message)}finally{$('compsBtn').disabled=false;$('compsBtn').textContent='🔎 Find comparable listings'}
+  const r=await fetch('/api/comps?'+new URLSearchParams({
+   q,
+   market:$('market').value,
+   condition:$('condition').value
+  }));
+
+  const d=await r.json();
+
+  if(d.pricingUnavailable){
+   $('valueCard').classList.remove('hidden');
+   $('source').textContent=d.source||'Live pricing unavailable';
+
+   $('fair').textContent='—';
+   $('range').textContent=d.error||'Live market pricing is currently unavailable.';
+   $('quick').textContent='—';
+   $('mid').textContent='—';
+   $('top').textContent='—';
+
+   $('stats').textContent='Use Search this item below to check current listings while eBay pricing is unavailable.';
+   $('compList').innerHTML='<div class="empty">No verified live comparable listings available yet.</div>';
+
+   $('salesTitle').value=q;
+   $('salesText').value='';
+
+   $('saveItem').disabled=true;
+   $('copy').disabled=true;
+
+   $('valueCard').scrollIntoView({behavior:'smooth'});
+   return;
+  }
+
+  if(!r.ok){
+   throw new Error(d.error||'Search failed');
+  }
+
+  $('saveItem').disabled=false;
+  $('copy').disabled=false;
+
+  renderValue(d,q);
+
+ }catch(e){
+  $('valueCard').classList.remove('hidden');
+  $('source').textContent='Pricing unavailable';
+  $('fair').textContent='—';
+  $('range').textContent=e.message;
+  $('quick').textContent='—';
+  $('mid').textContent='—';
+  $('top').textContent='—';
+  $('stats').textContent='Use Search this item to check current listings.';
+  $('compList').innerHTML='<div class="empty">No live price data available.</div>';
+  $('saveItem').disabled=true;
+  $('copy').disabled=true;
+  $('valueCard').scrollIntoView({behavior:'smooth'});
+
+ }finally{
+  $('compsBtn').disabled=false;
+  $('compsBtn').textContent='🔎 Find comparable listings';
+ }
 };
 
 function money(v,c){try{return new Intl.NumberFormat(undefined,{style:'currency',currency:c,maximumFractionDigits:0}).format(v)}catch{return Math.round(v)+' '+c}}

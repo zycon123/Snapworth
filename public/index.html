@@ -232,20 +232,63 @@ async function imageToUploadBlob(file,maxW=1280,quality=.82){
   img.src=url;
  });
 }
-$('identify').onclick=async()=>{
+$$('identify').onclick=async()=>{
  if(!file)return;
+
  $('identify').disabled=true;
  $('status').textContent='Analyzing image…';
 
  try{
   const compressed=await imageToUploadBlob(file);
-  const fd=new FormData();fd.append('image',file);
- try{
-  const r=await fetch('/api/identify',{method:'POST',body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||'Failed');
-  identified=d;$('name').textContent=d.item_name||'Unknown item';$('meta').textContent=[d.brand,d.model,d.category].filter(Boolean).join(' • ');$('conf').textContent=Math.round((d.confidence||.5)*100)+'% confidence';
-  $('query').value=[d.brand,d.model].filter(Boolean).join(' ')||d.item_name||'';$('identifyCard').classList.remove('hidden');$('identifyCard').scrollIntoView({behavior:'smooth'});
-  $('status').textContent=d.demo?'Demo identification. Add OPENAI_API_KEY for real AI.':'Identification complete.';
- }catch(e){$('status').textContent='Identification failed: '+e.message}finally{$('identify').disabled=false}
+
+  const fd=new FormData();
+  fd.append('image',compressed,'upload.jpg');
+
+  const r=await fetch('/api/identify',{
+   method:'POST',
+   body:fd
+  });
+
+  const raw=await r.text();
+
+  let d;
+  try{
+   d=JSON.parse(raw);
+  }catch{
+   throw new Error(raw || 'Server returned an invalid response');
+  }
+
+  if(!r.ok){
+   throw new Error(d.error || 'Identification failed');
+  }
+
+  identified=d;
+
+  $('name').textContent=d.item_name || 'Unknown item';
+  $('meta').textContent=[d.brand,d.model,d.category]
+   .filter(Boolean)
+   .join(' • ');
+
+  $('conf').textContent=
+   Math.round((d.confidence||.5)*100)+'% confidence';
+
+  $('query').value=
+   [d.brand,d.model].filter(Boolean).join(' ')
+   || d.item_name
+   || '';
+
+  $('identifyCard').classList.remove('hidden');
+  $('identifyCard').scrollIntoView({behavior:'smooth'});
+
+  $('status').textContent=d.demo
+   ? 'Demo identification. Add OPENAI_API_KEY for real AI.'
+   : 'Identification complete.';
+
+ }catch(e){
+  $('status').textContent='Identification failed: '+e.message;
+ }finally{
+  $('identify').disabled=false;
+ }
 };
 
 

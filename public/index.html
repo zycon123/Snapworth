@@ -349,26 +349,42 @@ $('compsBtn').onclick=async()=>{
   const d=await r.json();
 
   if(d.pricingUnavailable){
-   $('valueCard').classList.remove('hidden');
-   $('source').textContent=d.source||'Live pricing unavailable';
+ $('valueCard').classList.remove('hidden');
+ $('source').textContent=d.source||'Live pricing unavailable';
 
-   $('fair').textContent='—';
-   $('range').textContent=d.error||'Live market pricing is currently unavailable.';
-   $('quick').textContent='—';
-   $('mid').textContent='—';
-   $('top').textContent='—';
+ const isNorway=d.market==='NORWAY' || $('market').value==='NORWAY';
 
+ $('fair').textContent=isNorway?'NOK —':'—';
+ $('range').textContent=d.error||'Live market pricing is currently unavailable.';
+ $('quick').textContent='—';
+ $('mid').textContent='—';
+ $('top').textContent='—';
+
+ if(isNorway){
+   $('stats').textContent='Use FINN.no and Facebook Marketplace below to compare current Norwegian listings.';
+   $('compList').innerHTML='<div class="empty">Automatic Norwegian price matching is not connected yet.</div>';
+   $('salesTitle').value=q;
+   $('salesText').value=`${q} selges.
+
+Tilstand: ${$('condition').selectedOptions[0].text}.
+
+Pris vurderes ut fra tilsvarende annonser på FINN.no og Facebook Marketplace.
+
+Ta kontakt ved spørsmål eller ønske om flere bilder.`;
+   $('copy').disabled=false;
+ }else{
    $('stats').textContent='Use Search this item below to check current listings while eBay pricing is unavailable.';
    $('compList').innerHTML='<div class="empty">No verified live comparable listings available yet.</div>';
-
    $('salesTitle').value=q;
    $('salesText').value='';
-
-   $('saveItem').disabled=true;
    $('copy').disabled=true;
+ }
 
-   $('valueCard').scrollIntoView({behavior:'smooth'});
-   return;
+ $('saveItem').disabled=true;
+
+ $('valueCard').scrollIntoView({behavior:'smooth'});
+ return;
+}
   }
 
   if(!r.ok){

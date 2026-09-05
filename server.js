@@ -209,9 +209,27 @@ Rules:
 });
 
 const marketplaceMap={
- EBAY_US:{id:"EBAY_US",currency:"USD"},
+ const requestedMarket=String(req.query.market||"NORWAY");
+
+if(requestedMarket==="NORWAY"){
+ return res.status(503).json({
+  pricingUnavailable:true,
+  source:"Norwegian market",
+  currency:"NOK",
+  market:"NORWAY",
+  error:"Automatic Norwegian market pricing is not connected yet. Use FINN.no and Facebook Marketplace search to check current Norwegian listings."
+ });
+}
+
+const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
  EBAY_GB:{id:"EBAY_GB",currency:"GBP"},
  EBAY_DE:{id:"EBAY_DE",currency:"EUR"}
+};
+
+const norwayMarket={
+ id:"NORWAY",
+ currency:"NOK",
+ name:"Norway"
 };
 
 async function ebayToken(){

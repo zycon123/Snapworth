@@ -1,19 +1,13 @@
 services:
   - type: web
     name: snapworth
-    runtime: docker
-    plan: starter
-    healthCheckPath: /health
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
-      - key: SESSION_SECRET
-        generateValue: true
-      - key: DB_PATH
-        value: /var/data/snapworth.db
-      - key: SESSION_DB_DIR
-        value: /var/data
-    disk:
-      name: snapworth-data
-      mountPath: /var/data
-      sizeGB: 1
+      - key: PORT
+        value: 10000
+    autoDeploy: true

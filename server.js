@@ -308,7 +308,14 @@ const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
     .map(t=>t.replace(/[^a-z0-9]+/g,""))
     .filter(t=>t.length>1);
 
-  const normalizedQuery=q.toLowerCase();
+  function normalizeText(text){
+  return String(text||"")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase();
+}
+
+const normalizedQuery=normalizeText(q);
 
   const accessoryWords=[
     "memory card",
@@ -366,7 +373,7 @@ const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
   const queryWantsPremium=queryHasAny(premiumWords);
 
   function regionPenalty(title){
-    const low=title.toLowerCase();
+    const low=normalizeText(title);
 
     const explicitPAL=
       low.includes(" pal ") ||
@@ -401,7 +408,7 @@ const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
   const items=(d.itemSummaries||[])
     .map(x=>{
       const title=x.title||"";
-      const low=title.toLowerCase();
+      const low=normalizeText(title);
 
       const matches=terms.filter(t=>low.includes(t)).length;
       const baseScore=terms.length ? matches/terms.length : 0;

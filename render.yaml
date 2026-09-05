@@ -2,7 +2,7 @@ services:
   - type: web
     name: snapworth
     env: node
-    plan: starter
+    plan: free
     buildCommand: npm install
     startCommand: node server.js
     autoDeploy: true
@@ -12,12 +12,3 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: DB_PATH
-        value: /var/data/snapworth.db
-      - key: SESSION_DB_DIR
-        value: /var/data
-
-    disk:
-      name: snapworth-data
-      mountPath: /var/data
-      sizeGB: 1

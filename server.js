@@ -186,8 +186,9 @@ Return ONLY valid JSON in exactly this format:
   "category":"Electronics|Tools|Games & Consoles|Collectibles|Furniture|Car Parts|Clothing|Watches|Toys|Home & Appliances|Other",
   "confidence":0.0,
   "notes":"brief explanation of uncertainty",
-  "search_query":"best concise marketplace search query",
-  "needs_more_photos":false,
+  "search_query":"best concise international marketplace search query",
+"search_query_no":"best concise Norwegian marketplace search query for FINN.no and Facebook Marketplace",
+"needs_more_photos":false,
   "photo_request":"what additional photo would help, or null"
 }
 
@@ -197,7 +198,12 @@ Rules:
 - Prefer exact brand + model over a generic description when supported.
 - If text or a model label may exist but is not readable, set needs_more_photos to true.
 - If the item is generic, say so.
-- search_query should be optimized for resale search, usually brand + model + product type.
+- - search_query should be optimized for international resale search, usually brand + model + product type.
+- search_query_no must be written for Norwegian buyers and Norwegian marketplace terminology.
+- Translate the generic product type into Norwegian, but NEVER translate brand names, model names, model numbers, product codes or proper product names.
+- Example: "Nintendo GameCube Controller" -> search_query_no: "Nintendo GameCube kontroller".
+- Example: "Makita DDF484 Cordless Drill" -> search_query_no: "Makita DDF484 batteridrill".
+- Example: "Pokemon Colosseum Nintendo GameCube" -> keep the game title unchanged.
 - confidence must be between 0 and 1.
 - If another close-up photo of a label, underside, rear panel, packaging or logo would materially improve identification, explain exactly what photo is needed in photo_request.`},
     {type:"input_image",image_url:dataUrl}

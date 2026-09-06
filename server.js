@@ -40,6 +40,14 @@ const pool=new Pool({
     ? {rejectUnauthorized:false}
     : false
 });
+const dbUrlCheck=new URL(process.env.DATABASE_URL);
+
+console.log("Database connection check:",{
+  host:dbUrlCheck.hostname,
+  port:dbUrlCheck.port,
+  database:dbUrlCheck.pathname,
+  user:decodeURIComponent(dbUrlCheck.username)
+});
 
 const PgSession=connectPgSimple(session);
 

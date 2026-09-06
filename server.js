@@ -9,6 +9,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
 dotenv.config();
+const { Pool } = pg;
 
 const app=express();
 if (process.env.NODE_ENV==="production") app.set("trust proxy",1);
@@ -23,8 +24,7 @@ app.use(helmet({
       connectSrc:["'self'"],
       frameAncestors:["'none'"]
     }
-  }
-}));
+ 
 app.use(express.json({limit:"1.5mb"}));
 
 if(!process.env.DATABASE_URL){
@@ -186,7 +186,7 @@ app.post("/api/auth/logout",(req,res)=>{
  req.session.destroy(()=>{
   res.json({ok:true});
  });
-});
+
 
 app.get("/api/auth/me",async(req,res)=>{
  try{
@@ -208,7 +208,7 @@ app.get("/api/auth/me",async(req,res)=>{
   res.status(500).json({error:"Could not check account."});
  }
 });
-});
+
 
 
 function normalizeImagePayload(image){
@@ -229,7 +229,7 @@ app.get("/api/items",auth,async(req,res)=>{
   console.error("Load items error:",e);
   res.status(500).json({error:"Could not load items."});
  }
-});
+
 
 app.post("/api/items",auth,async(req,res)=>{
  try{
@@ -362,7 +362,7 @@ app.delete("/api/items/:id",auth,async(req,res)=>{
   res.status(500).json({error:"Could not delete item."});
  }
 });
-});
+
 
 app.post("/api/identify",upload.single("image"),async(req,res)=>{
  if(!req.file)return res.status(400).json({error:"No image uploaded."});

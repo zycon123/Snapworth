@@ -234,11 +234,7 @@ app.get("/api/items",auth,async(req,res)=>{
  }
 });
 
-  res.json({items:result.rows});
- }catch(e){
-  console.error("Load items error:",e);
-  res.status(500).json({error:"Could not load items."});
- }
+
 
 
 app.post("/api/items",auth,async(req,res)=>{

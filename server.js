@@ -3,10 +3,11 @@ import multer from "multer";
 import dotenv from "dotenv";
 import session from "express-session";
 import bcrypt from "bcryptjs";
-import Database from "better-sqlite3";
+import pg from "pg";
+import connectPgSimple from "connect-pg-simple";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import connectSqlite3 from "connect-sqlite3";
+
 dotenv.config();
 
 const app=express();
@@ -26,10 +27,25 @@ app.use(helmet({
 }));
 app.use(express.json({limit:"1.5mb"}));
 
-const SQLiteStore=connectSqlite3(session);
+if(!process.env.DATABASE_URL){
+  throw new Error("DATABASE_URL is required");
+}
+
+const pool=new Pool({
+  connectionString:process.env.DATABASE_URL,
+  ssl:process.env.NODE_ENV==="production"
+    ? {rejectUnauthorized:false}
+    : false
+});
+
+const PgSession=connectPgSimple(session);
+
 app.use(session({
-  store:new SQLiteStore({db:"sessions.sqlite",dir:process.env.SESSION_DB_DIR||"."}),
-  secret: process.env.SESSION_SECRET || "development-only-change-me",
+  store:new PgSession({
+    pool,
+    createTableIfMissing:true
+  }),
+  secret:process.env.SESSION_SECRET || "development-only-change-me",
   resave:false,
   saveUninitialized:false,
   cookie:{
@@ -39,37 +55,38 @@ app.use(session({
     maxAge:1000*60*60*24*30
   }
 }));
+  }
+}));
 
 const authLimiter=rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:"draft-7",legacyHeaders:false});
 const apiLimiter=rateLimit({windowMs:60*1000,limit:120,standardHeaders:"draft-7",legacyHeaders:false});
 app.use("/api",apiLimiter);
 
-const db=new Database(process.env.DB_PATH || "snapworth.db");
-db.pragma("journal_mode = WAL");
-db.exec(`
-CREATE TABLE IF NOT EXISTS users(
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- email TEXT UNIQUE NOT NULL,
- password_hash TEXT NOT NULL,
- created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS items(
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- user_id INTEGER NOT NULL,
- name TEXT NOT NULL,
- value REAL NOT NULL,
- currency TEXT NOT NULL,
- condition TEXT,
- low REAL,
- high REAL,
- category TEXT,
- image_data TEXT,
- notes TEXT,
- saved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
- FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-);`);
-try { db.exec("ALTER TABLE items ADD COLUMN image_data TEXT"); } catch {}
-try { db.exec("ALTER TABLE items ADD COLUMN notes TEXT"); } catch {}
+async function initDatabase(){
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users(
+      id BIGSERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS items(
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      value DOUBLE PRECISION NOT NULL,
+      currency TEXT NOT NULL,
+      condition TEXT,
+      low DOUBLE PRECISION,
+      high DOUBLE PRECISION,
+      category TEXT,
+      image_data TEXT,
+      notes TEXT,
+      saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+}
 
 function auth(req,res,next){
  if(!req.session.userId)return res.status(401).json({error:"Sign in required."});
@@ -95,28 +112,102 @@ app.post("/api/auth/register",authLimiter,async(req,res)=>{
  try{
   const email=String(req.body.email||"").trim().toLowerCase();
   const password=String(req.body.password||"");
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return res.status(400).json({error:"Enter a valid email."});
-  if(password.length<8)return res.status(400).json({error:"Password must be at least 8 characters."});
+
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+   return res.status(400).json({error:"Enter a valid email."});
+  }
+
+  if(password.length<8){
+   return res.status(400).json({error:"Password must be at least 8 characters."});
+  }
+
   const hash=await bcrypt.hash(password,12);
-  const info=db.prepare("INSERT INTO users(email,password_hash) VALUES(?,?)").run(email,hash);
-  req.session.userId=Number(info.lastInsertRowid);
-  res.json({user:{id:req.session.userId,email}});
+
+  const result=await pool.query(
+   `INSERT INTO users(email,password_hash)
+    VALUES($1,$2)
+    RETURNING id,email`,
+   [email,hash]
+  );
+
+  const user=result.rows[0];
+
+  req.session.userId=String(user.id);
+
+  res.json({
+   user:{
+    id:user.id,
+    email:user.email
+   }
+  });
+
  }catch(e){
-  if(String(e.message).includes("UNIQUE"))return res.status(409).json({error:"Account already exists."});
+  if(e.code==="23505"){
+   return res.status(409).json({error:"Account already exists."});
+  }
+
+  console.error("Register error:",e);
   res.status(500).json({error:"Could not create account."});
  }
 });
+
 app.post("/api/auth/login",authLimiter,async(req,res)=>{
- const email=String(req.body.email||"").trim().toLowerCase(), password=String(req.body.password||"");
- const u=db.prepare("SELECT * FROM users WHERE email=?").get(email);
- if(!u || !(await bcrypt.compare(password,u.password_hash)))return res.status(401).json({error:"Invalid email or password."});
- req.session.userId=u.id;res.json({user:{id:u.id,email:u.email}});
+ try{
+  const email=String(req.body.email||"").trim().toLowerCase();
+  const password=String(req.body.password||"");
+
+  const result=await pool.query(
+   "SELECT id,email,password_hash FROM users WHERE email=$1",
+   [email]
+  );
+
+  const u=result.rows[0];
+
+  if(!u || !(await bcrypt.compare(password,u.password_hash))){
+   return res.status(401).json({error:"Invalid email or password."});
+  }
+
+  req.session.userId=String(u.id);
+
+  res.json({
+   user:{
+    id:u.id,
+    email:u.email
+   }
+  });
+
+ }catch(e){
+  console.error("Login error:",e);
+  res.status(500).json({error:"Could not sign in."});
+ }
 });
-app.post("/api/auth/logout",(req,res)=>req.session.destroy(()=>res.json({ok:true})));
-app.get("/api/auth/me",(req,res)=>{
- if(!req.session.userId)return res.json({user:null});
- const u=db.prepare("SELECT id,email FROM users WHERE id=?").get(req.session.userId);
- res.json({user:u||null});
+
+app.post("/api/auth/logout",(req,res)=>{
+ req.session.destroy(()=>{
+  res.json({ok:true});
+ });
+});
+
+app.get("/api/auth/me",async(req,res)=>{
+ try{
+  if(!req.session.userId){
+   return res.json({user:null});
+  }
+
+  const result=await pool.query(
+   "SELECT id,email FROM users WHERE id=$1",
+   [req.session.userId]
+  );
+
+  res.json({
+   user:result.rows[0]||null
+  });
+
+ }catch(e){
+  console.error("Auth check error:",e);
+  res.status(500).json({error:"Could not check account."});
+ }
+});
 });
 
 
@@ -126,39 +217,151 @@ function normalizeImagePayload(image){
  return image.length < 1500000 ? image : null;
 }
 
-app.get("/api/items",auth,(req,res)=>{
- res.json({items:db.prepare("SELECT * FROM items WHERE user_id=? ORDER BY id DESC").all(req.session.userId)});
-});
-app.post("/api/items",auth,(req,res)=>{
- const x=req.body||{};
- if(!x.name || !Number.isFinite(Number(x.value)) || !x.currency)return res.status(400).json({error:"Invalid item."});
- const imageData = normalizeImagePayload(x.image);
- const notes = String(x.notes||"").slice(0,2000);
- const info=db.prepare(`INSERT INTO items(user_id,name,value,currency,condition,low,high,category,image_data,notes)
- VALUES(?,?,?,?,?,?,?,?,?,?)`).run(
-   req.session.userId,String(x.name),Number(x.value),String(x.currency),String(x.condition||""),
-   Number(x.low)||null,Number(x.high)||null,String(x.category||""),imageData,notes
- );
- res.json({item:db.prepare("SELECT * FROM items WHERE id=?").get(info.lastInsertRowid)});
+app.get("/api/items",auth,async(req,res)=>{
+ try{
+  const result=await pool.query(
+   "SELECT * FROM items WHERE user_id=$1 ORDER BY id DESC",
+   [req.session.userId]
+  );
+
+  res.json({items:result.rows});
+ }catch(e){
+  console.error("Load items error:",e);
+  res.status(500).json({error:"Could not load items."});
+ }
 });
 
-app.get("/api/items/:id",auth,(req,res)=>{
- const item=db.prepare("SELECT * FROM items WHERE id=? AND user_id=?").get(Number(req.params.id),req.session.userId);
- if(!item)return res.status(404).json({error:"Item not found."});
- res.json({item});
+app.post("/api/items",auth,async(req,res)=>{
+ try{
+  const x=req.body||{};
+
+  if(!x.name || !Number.isFinite(Number(x.value)) || !x.currency){
+   return res.status(400).json({error:"Invalid item."});
+  }
+
+  const imageData=normalizeImagePayload(x.image);
+  const notes=String(x.notes||"").slice(0,2000);
+
+  const result=await pool.query(
+   `INSERT INTO items(
+     user_id,
+     name,
+     value,
+     currency,
+     condition,
+     low,
+     high,
+     category,
+     image_data,
+     notes
+    )
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    RETURNING *`,
+   [
+    req.session.userId,
+    String(x.name),
+    Number(x.value),
+    String(x.currency),
+    String(x.condition||""),
+    Number.isFinite(Number(x.low)) ? Number(x.low) : null,
+    Number.isFinite(Number(x.high)) ? Number(x.high) : null,
+    String(x.category||""),
+    imageData,
+    notes
+   ]
+  );
+
+  res.json({item:result.rows[0]});
+
+ }catch(e){
+  console.error("Save item error:",e);
+  res.status(500).json({error:"Could not save item."});
+ }
 });
-app.patch("/api/items/:id",auth,(req,res)=>{
- const id=Number(req.params.id), x=req.body||{};
- const current=db.prepare("SELECT * FROM items WHERE id=? AND user_id=?").get(id,req.session.userId);
- if(!current)return res.status(404).json({error:"Item not found."});
- const notes=String(x.notes ?? current.notes ?? "").slice(0,2000);
- const condition=String(x.condition ?? current.condition ?? "");
- db.prepare("UPDATE items SET notes=?, condition=? WHERE id=? AND user_id=?").run(notes,condition,id,req.session.userId);
- res.json({item:db.prepare("SELECT * FROM items WHERE id=? AND user_id=?").get(id,req.session.userId)});
+
+app.get("/api/items/:id",auth,async(req,res)=>{
+ try{
+  const result=await pool.query(
+   "SELECT * FROM items WHERE id=$1 AND user_id=$2",
+   [req.params.id,req.session.userId]
+  );
+
+  const item=result.rows[0];
+
+  if(!item){
+   return res.status(404).json({error:"Item not found."});
+  }
+
+  res.json({item});
+
+ }catch(e){
+  console.error("Load item error:",e);
+  res.status(500).json({error:"Could not load item."});
+ }
 });
-app.delete("/api/items/:id",auth,(req,res)=>{
- db.prepare("DELETE FROM items WHERE id=? AND user_id=?").run(Number(req.params.id),req.session.userId);
- res.json({ok:true});
+
+app.patch("/api/items/:id",auth,async(req,res)=>{
+ try{
+  const x=req.body||{};
+
+  const currentResult=await pool.query(
+   "SELECT * FROM items WHERE id=$1 AND user_id=$2",
+   [req.params.id,req.session.userId]
+  );
+
+  const current=currentResult.rows[0];
+
+  if(!current){
+   return res.status(404).json({error:"Item not found."});
+  }
+
+  const notes=String(
+   x.notes ?? current.notes ?? ""
+  ).slice(0,2000);
+
+  const condition=String(
+   x.condition ?? current.condition ?? ""
+  );
+
+  const result=await pool.query(
+   `UPDATE items
+    SET notes=$1, condition=$2
+    WHERE id=$3 AND user_id=$4
+    RETURNING *`,
+   [
+    notes,
+    condition,
+    req.params.id,
+    req.session.userId
+   ]
+  );
+
+  res.json({item:result.rows[0]});
+
+ }catch(e){
+  console.error("Update item error:",e);
+  res.status(500).json({error:"Could not update item."});
+ }
+});
+
+app.delete("/api/items/:id",auth,async(req,res)=>{
+ try{
+  const result=await pool.query(
+   "DELETE FROM items WHERE id=$1 AND user_id=$2 RETURNING id",
+   [req.params.id,req.session.userId]
+  );
+
+  if(!result.rows[0]){
+   return res.status(404).json({error:"Item not found."});
+  }
+
+  res.json({ok:true});
+
+ }catch(e){
+  console.error("Delete item error:",e);
+  res.status(500).json({error:"Could not delete item."});
+ }
+});
 });
 
 app.post("/api/identify",upload.single("image"),async(req,res)=>{
@@ -475,4 +678,20 @@ const normalizedQuery=normalizeText(q);
   });
  }
 });
-app.listen(process.env.PORT||3000,()=>console.log(`SnapWorth v0.3 running on http://localhost:${process.env.PORT||3000}`));
+async function startServer(){
+  try{
+    await initDatabase();
+
+    const port=process.env.PORT||3000;
+
+    app.listen(port,()=>{
+      console.log(`SnapWorth running on port ${port}`);
+    });
+
+  }catch(e){
+    console.error("Database startup failed:",e);
+    process.exit(1);
+  }
+}
+
+startServer();

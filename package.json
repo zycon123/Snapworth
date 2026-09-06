@@ -8,14 +8,14 @@
     "dev": "node server.js"
   },
   "dependencies": {
-    "dotenv": "^16.4.7",
-    "express": "^5.1.0",
-    "multer": "^2.0.2",
-    "better-sqlite3": "^11.8.1",
-    "bcryptjs": "^3.0.2",
-    "express-session": "^1.18.1",
-    "helmet": "^8.1.0",
-    "express-rate-limit": "^7.5.0",
-    "connect-sqlite3": "^0.9.15"
+  "dotenv": "^16.4.7",
+  "express": "^5.1.0",
+  "multer": "^2.0.2",
+  "bcryptjs": "^3.0.2",
+  "express-session": "^1.18.1",
+  "helmet": "^8.1.0",
+  "express-rate-limit": "^7.5.0",
+  "pg": "^8.13.1",
+  "connect-pg-simple": "^10.0.0"
   }
 }

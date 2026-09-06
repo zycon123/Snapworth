@@ -29,7 +29,6 @@ app.use(helmet({
 
 app.use(express.json({limit:"1.5mb"}));
  
-app.use(express.json({limit:"1.5mb"}));
 
 if(!process.env.DATABASE_URL){
   throw new Error("DATABASE_URL is required");
@@ -57,7 +56,7 @@ app.use(session({
     sameSite:"lax",
     secure:process.env.NODE_ENV==="production",
     maxAge:1000*60*60*24*30
-
+ }
 }));
 
 const authLimiter=rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:"draft-7",legacyHeaders:false});
@@ -188,7 +187,7 @@ app.post("/api/auth/logout",(req,res)=>{
  req.session.destroy(()=>{
   res.json({ok:true});
  });
-  });
+});
 
 
 app.get("/api/auth/me",async(req,res)=>{
@@ -226,7 +225,14 @@ app.get("/api/items",auth,async(req,res)=>{
    "SELECT * FROM items WHERE user_id=$1 ORDER BY id DESC",
    [req.session.userId]
   );
-   });
+
+  res.json({items:result.rows});
+
+ }catch(e){
+  console.error("Load items error:",e);
+  res.status(500).json({error:"Could not load items."});
+ }
+});
 
   res.json({items:result.rows});
  }catch(e){

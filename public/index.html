@@ -314,14 +314,14 @@ $('query').value=
   $('identifyCard').classList.remove('hidden');
   $('identifyCard').scrollIntoView({behavior:'smooth'});
 
-  if(d.demo){
+ if(d.demo){
  $('status').textContent='Demo identification. Add OPENAI_API_KEY for real AI.';
 }else if(d.needs_more_photos){
  $('status').textContent=
   'Identification complete, but more detail would help. '
   +(d.photo_request || 'Take a close-up photo of the label, logo or model number.');
-
-}
+}else{
+ $('status').textContent='Identification complete.';
 }
 
  }catch(e){

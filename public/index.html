@@ -417,11 +417,26 @@ Ta kontakt ved spørsmål eller ønske om flere bilder.`;
    $('copy').disabled=true;
  }
 
- $('saveItem').disabled=true;
+ if(isNorway){
+  lastValuation={
+    name:q,
+    value:0,
+    currency:'NOK',
+    condition:$('condition').selectedOptions[0].text,
+    low:null,
+    high:null,
+    category:identified?.category||'Other',
+    image:$('preview').src||''
+  };
 
- $('valueCard').scrollIntoView({behavior:'smooth'});
- return;
-  }
+  $('saveItem').disabled=false;
+}else{
+  lastValuation=null;
+  $('saveItem').disabled=true;
+}
+
+$('valueCard').scrollIntoView({behavior:'smooth'});
+return;
 
   if(!r.ok){
    throw new Error(d.error||'Search failed');

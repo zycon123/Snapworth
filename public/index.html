@@ -298,6 +298,30 @@ $('query').value=
   +(d.photo_request || 'Take a close-up photo of the label, logo or model number.');
 }else{
  $('status').textContent='Identification complete.';
+   const autoEbayCategories=[
+  "Collectibles",
+  "Games & Consoles",
+  "Toys",
+  "Watches"
+];
+
+const identityText=[
+  d.item_name,
+  d.brand,
+  d.model,
+  d.category,
+  d.search_query
+].filter(Boolean).join(" ").toLowerCase();
+
+const shouldUseEbay=
+  autoEbayCategories.includes(d.category) ||
+  /pokemon|pokémon|mew|nintendo|gameboy|game boy|gamecube|playstation|xbox|trading card|tcg|amiibo/.test(identityText);
+
+if(shouldUseEbay){
+  $('market').value='EBAY_US';
+}else{
+  $('market').value='NORWAY';
+}
 }
 
  }catch(e){

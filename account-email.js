@@ -6,21 +6,36 @@ export const verificationRequired = env => env.EMAIL_VERIFICATION_REQUIRED === '
 export function emailConfiguration(env) {
   try {
     const origin = new URL(env.PUBLIC_ORIGIN);
+    const provider=env.EMAIL_PROVIDER || 'resend';
+    const key=provider==='brevo'?env.BREVO_API_KEY:provider==='resend'?env.RESEND_API_KEY:null;
     return origin.protocol === 'https:' && origin.origin === env.PUBLIC_ORIGIN &&
-      !!env.RESEND_API_KEY && /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/.test(env.EMAIL_FROM || '');
+      !!key && /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/.test(env.EMAIL_FROM || '');
   } catch { return false; }
+}
+export function emailTransport(env,fetcher) {
+  return async message=>{
+    if(!emailConfiguration(env))throw new Error('Account email is not configured');
+    if(env.EMAIL_PROVIDER==='brevo'){
+      const result=await fetchJson(fetcher,'https://api.brevo.com/v3/smtp/email',{
+        method:'POST',headers:{'api-key':env.BREVO_API_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({sender:{name:'SnapWorth · Zycon Studios',email:env.EMAIL_FROM},
+          replyTo:{name:'Zycon Studios',email:env.EMAIL_FROM},to:[{email:message.to}],subject:message.subject,textContent:message.text})
+      },10000);
+      if(typeof result.messageId!=='string'||!result.messageId)throw new Error('Email delivery unavailable');
+    }else{
+      const result=await fetchJson(fetcher,'https://api.resend.com/emails',{
+        method:'POST',headers:{Authorization:`Bearer ${env.RESEND_API_KEY}`,'Content-Type':'application/json'},
+        body:JSON.stringify({from:env.EMAIL_FROM,to:[message.to],subject:message.subject,text:message.text})
+      },10000);
+      if(typeof result.id!=='string'||!result.id)throw new Error('Email delivery unavailable');
+    }
+  };
 }
 export function accountEmail({app,pool,env,limiter,sendMail,fetcher}) {
   const enabled = verificationRequired(env);
   const ready = !!sendMail || emailConfiguration(env);
-  if (enabled && !ready) throw new Error('Email verification requires PUBLIC_ORIGIN, EMAIL_FROM and RESEND_API_KEY.');
-  const deliver = sendMail || (async message => {
-    const result = await fetchJson(fetcher,'https://api.resend.com/emails',{
-      method:'POST',headers:{Authorization:`Bearer ${env.RESEND_API_KEY}`,'Content-Type':'application/json'},
-      body:JSON.stringify({from:env.EMAIL_FROM,to:[message.to],subject:message.subject,text:message.text})
-    },10000);
-    if (!result.id) throw new Error('Email delivery unavailable');
-  });
+  if (enabled && !ready) throw new Error('Email verification requires PUBLIC_ORIGIN, EMAIL_FROM and an API key for EMAIL_PROVIDER (resend or brevo).');
+  const deliver = sendMail || emailTransport(env,fetcher);
   const digest = token => createHash('sha256').update(token).digest('hex');
   const generic = {ok:true,message:'If the account is eligible, an email will arrive shortly. Check your spam folder.'};
   async function init() {
@@ -37,7 +52,7 @@ export function accountEmail({app,pool,env,limiter,sendMail,fetcher}) {
     // Persistent per-account cooldown and shared daily ceiling, including retries.
     const minute = new Date().toISOString().slice(0,16);
     const day = minute.slice(0,10);
-    for (const [key,window,limit] of [[`email:${user.id}`,minute,1],['email:global',day,500]]) {
+    for (const [key,window,limit] of [[`email:${user.id}`,minute,1],['email:global',day,env.EMAIL_PROVIDER==='brevo'?250:500]]) {
       const result=await pool.query(`INSERT INTO api_usage(key,window_key,count) VALUES($1,$2,1)
         ON CONFLICT(key,window_key) DO UPDATE SET count=LEAST(api_usage.count+1,$3) RETURNING count`,[key,window,limit+1]);
       if (result.rows[0].count>limit) return;

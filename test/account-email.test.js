@@ -4,7 +4,7 @@ import { newDb } from 'pg-mem';
 import session from 'express-session';
 import request from 'supertest';
 import { createApp } from '../server.js';
-import { emailConfiguration } from '../account-email.js';
+import { emailConfiguration, emailTransport } from '../account-email.js';
 
 async function fixture(){
  const db=newDb();const {Pool}=db.adapters.createPg();const pool=new Pool();const mail=[];
@@ -59,4 +59,20 @@ test('email configuration requires an exact HTTPS origin and sender',()=>{
  assert.equal(emailConfiguration({}),false);
  assert.equal(emailConfiguration({PUBLIC_ORIGIN:'https://app.example',EMAIL_FROM:'accounts@example.com',RESEND_API_KEY:'test-only'}),true);
  assert.equal(emailConfiguration({PUBLIC_ORIGIN:'https://app.example/extra',EMAIL_FROM:'accounts@example.com',RESEND_API_KEY:'test-only'}),false);
+});
+
+test('Brevo transport uses its API contract and Proton reply address without falling back to Resend',async()=>{
+ const env={PUBLIC_ORIGIN:'https://app.example',EMAIL_PROVIDER:'brevo',EMAIL_FROM:'zyconstudios@protonmail.com',BREVO_API_KEY:'test-only'};
+ assert.equal(emailConfiguration(env),true);
+ assert.equal(emailConfiguration({...env,BREVO_API_KEY:'',RESEND_API_KEY:'test-only'}),false);
+ assert.equal(emailConfiguration({...env,EMAIL_PROVIDER:'unknown'}),false);
+ const calls=[];
+ const send=emailTransport(env,async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify({messageId:'test-message'}),{status:201})});
+ await send({to:'recipient@example.test',subject:'Confirm account',text:'Link with fragment'});
+ assert.equal(calls[0].url,'https://api.brevo.com/v3/smtp/email');
+ assert.equal(calls[0].options.headers['api-key'],'test-only');
+ const body=JSON.parse(calls[0].options.body);
+ assert.deepEqual(body.to,[{email:'recipient@example.test'}]);
+ assert.equal(body.replyTo.email,env.EMAIL_FROM);assert.equal(body.textContent,'Link with fragment');
+ await assert.rejects(emailTransport(env,async()=>new Response('{}'))({to:'recipient@example.test'}),/unavailable/);
 });

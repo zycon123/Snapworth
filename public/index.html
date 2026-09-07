@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0a0d10">
+<meta name="theme-color" content="#070b16">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>SnapWorth v0.9</title>
+<title>SnapWorth</title>
 <style>
 :root{
  --bg:#090c0f;--card:#12171c;--card2:#0d1216;--line:#24303a;--text:#f7f9fb;--muted:#95a2ad;
@@ -52,6 +52,148 @@ textarea{min-height:120px;resize:vertical}
 .page{display:none}.page.active{display:block}
 .notice{font-size:11px;color:var(--muted);line-height:1.45;margin-top:10px}
 @media(max-width:390px){.grid,.tiers{grid-template-columns:1fr}.full{grid-column:auto}.inventoryCard{grid-template-columns:auto 1fr}.inventoryCard>div:last-child{grid-column:2}}
+/* SnapWorth UI v2: presentation only; application hooks remain unchanged. */
+:root {
+  color-scheme: dark;
+  --bg: #070b16;
+  --card: #121c30;
+  --card2: #0c1426;
+  --line: rgba(155, 182, 237, .16);
+  --text: #f3f6ff;
+  --muted: #a1aec9;
+  --a: #73dcff;
+  --a2: #9d92ff;
+  --shadow: 0 20px 60px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255, 255, 255, .045);
+}
+html { background: var(--bg); scroll-padding-bottom: 110px; }
+body {
+  min-height: 100svh;
+  background: radial-gradient(ellipse at 5% 0%, #14284e 0, transparent 45%), radial-gradient(ellipse at 100% 30%, #20153c 0, transparent 48%), linear-gradient(155deg, #0b1222, #070b16 70%);
+  background-attachment: fixed;
+  padding-bottom: calc(108px + env(safe-area-inset-bottom));
+  -webkit-font-smoothing: antialiased;
+}
+.app { max-width: 760px; padding: 28px 24px 40px; }
+.top { padding: 0 0 20px; border-bottom: 1px solid var(--line); }
+.brand { gap: 12px; font-size: 24px; font-weight: 800; letter-spacing: -.9px; }
+.logo {
+  position: relative; width: 44px; height: 44px; border-radius: 14px;
+  background: linear-gradient(145deg, #85ecff, #6587ff 58%, #a588ff);
+  color: #08142e; font-size: 25px; font-weight: 900;
+  box-shadow: 0 0 26px #688bff38, inset 0 1px 1px #ffffff80;
+}
+.logo::after { content: ''; position: absolute; inset: 6px; border: 1px solid #ffffff66; border-radius: 9px; pointer-events: none; }
+.badge { background: #8a9dff0d; color: #b6c8f9; padding: 8px 11px; font-weight: 600; letter-spacing: .3px; }
+.hero { margin: 34px 0 24px; }
+.hero h1 { font-size: clamp(36px, 7vw, 52px); line-height: 1.08; font-weight: 800; letter-spacing: -1.9px; margin-bottom: 14px; }
+#scanPage .hero h1 { background: linear-gradient(110deg, #ffffff 12%, #c6dcff 58%, #a298ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero p { max-width: 440px; font-size: 14px; line-height: 1.7; }
+.card, .onboardCard {
+  background: linear-gradient(145deg, rgba(27, 39, 63, .84), rgba(13, 20, 37, .92));
+  border: 1px solid var(--line); border-radius: 26px; padding: 24px;
+  box-shadow: var(--shadow); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+.card { margin-top: 20px; }
+.sectionTitle { font-size: 19px; font-weight: 750; }
+.sectionSub, .meta { font-size: 12px; line-height: 1.6; }
+.upload {
+  position: relative; overflow: hidden; padding: 34px 20px 28px; border: 1px dashed #82b6ff66; border-radius: 20px;
+  background: radial-gradient(ellipse at 50% 0, #477cfa24, transparent 65%), linear-gradient(145deg, #111d35, #0e1529);
+  transition: border-color .2s, box-shadow .2s;
+}
+.upload::before, .upload::after { content: ''; position: absolute; width: 24px; height: 24px; pointer-events: none; border-color: #8ecaff; border-style: solid; opacity: .7; }
+.upload::before { top: 12px; left: 12px; border-width: 2px 0 0 2px; border-radius: 7px 0 0; }
+.upload::after { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; border-radius: 0 0 7px; }
+.upload .cam { display: grid; place-items: center; width: 76px; height: 76px; margin: 0 auto 20px; border: 1px solid #91b7ff50; border-radius: 23px; background: linear-gradient(145deg, #4a78b83d, #6e4aac30); color: #b5ddff; box-shadow: 0 0 40px #487bfd21, inset 0 1px 0 #ffffff12; }
+.cam svg { width: 34px; height: 34px; }
+.upload strong { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+.upload span { font-size: 12px; line-height: 1.6; }
+#preview { max-height: 520px; object-fit: contain; background: #080e1c; border-radius: 16px; margin-top: 24px; box-shadow: 0 12px 32px #0005; }
+/* Visually hidden, but still reachable by keyboard and its original label. */
+#photo { display: block; position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.card:has(#photo:focus-visible) .upload { outline: 2px solid #94dbff; outline-offset: 4px; }
+button { min-height: 48px; border-radius: 14px; padding: 15px 16px; margin-top: 14px; font-family: inherit; font-weight: 700; color: #fff; background: linear-gradient(110deg, #326ee8, #6659df 65%, #7952d4); box-shadow: 0 6px 22px #3b56dd24, inset 0 1px 0 #ffffff29; transition: background .2s, box-shadow .2s, transform .2s; }
+button.secondary { background: #162238b3; border-color: #a5c3ff26; box-shadow: inset 0 1px 0 #ffffff06; color: #d8e4fc; }
+button.danger { background: #381b2b; color: #ffb9c7; border-color: #d46b8740; box-shadow: none; }
+button:disabled { opacity: .5; box-shadow: none; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #94dbff; outline-offset: 3px; }
+.status { color: #adbbd6; line-height: 1.6; margin-top: 12px; overflow-wrap: anywhere; }
+.grid { gap: 12px; }
+.grid > *, .row > *, .comp > *, .inventoryCard > * { min-width: 0; }
+label.small { color: #b7c7e3; font-size: 12px; margin-top: 18px; margin-bottom: 8px; }
+input, select, textarea { background: #0a1326b3; border-color: #93b6ed29; border-radius: 12px; font-family: inherit; font-size: 16px; line-height: 1.4; padding: 13px; }
+select option { background: #101a2e; }
+textarea { min-height: 146px; }
+.itemName { font-size: 24px; line-height: 1.25; overflow-wrap: anywhere; }
+.confidence { background: #4e97bd17; border-color: #72c4fa33; color: #9fdeff; font-size: 11px; padding: 8px 10px; }
+.row { flex-wrap: wrap; align-items: center; }
+.row > div:first-child { flex: 1 1 180px; }
+.pricebox { position: relative; padding: 26px; margin-top: 20px; border-radius: 21px; border-color: #869dff47; background: radial-gradient(ellipse at 100% 0, #705ff335, transparent 70%), linear-gradient(130deg, #142d47, #151d38); box-shadow: inset 0 1px 0 #d8edff12, 0 12px 35px #07112640; }
+.pricebox > span { font-size: 11px; color: #bfcef0; font-weight: 650; letter-spacing: 1.1px; text-transform: uppercase; }
+.price { font-size: clamp(34px, 8vw, 56px); line-height: 1.14; letter-spacing: -2px; font-weight: 800; margin: 12px 0; color: #e4f4ff; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#fair { color: #a9e8ff; text-shadow: 0 0 32px #70bbff30; }
+.range { line-height: 1.65; color: #b5c5e0; }
+.tiers { gap: 10px; margin-top: 12px; }
+.tier { background: #0c1629a6; padding: 14px 12px; border-radius: 14px; }
+.tier:nth-child(2) { border-color: #729ef85c; background: #467de914; }
+.tier span { font-size: 11px; }
+.tier b { font-size: 16px; margin-top: 8px; overflow-wrap: anywhere; }
+.notice { font-size: 12px; line-height: 1.7; margin: 16px 0 24px; }
+#compList { display: grid; gap: 10px; margin: 14px 0 24px; }
+.comp, .comp:first-child { border: 1px solid var(--line); background: linear-gradient(120deg, #19253b9c, #10192b99); padding: 16px; border-radius: 15px; gap: 18px; align-items: center; }
+.compTitle { font-size: 14px; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere; }
+.compMeta { font-size: 11px; line-height: 1.6; margin-top: 5px; overflow-wrap: anywhere; }
+.compPrice { color: #b1e4ff; font-size: 16px; font-weight: 750; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#inventoryList, #historyList { display: grid; gap: 12px; }
+.inventoryCard, .inventoryCard:first-child { padding: 14px; border: 1px solid var(--line); background: #0d1729a6; border-radius: 18px; grid-template-columns: 100px minmax(0, 1fr) auto; gap: 16px; }
+.thumb { width: 100px; height: 108px; object-fit: contain; padding: 4px; border-radius: 13px; background: linear-gradient(145deg, #22304a, #111b2c); }
+.inventoryCard > div:last-child { text-align: right; }
+#detailImage { max-height: 520px !important; object-fit: contain !important; background: #0a1222; padding: 12px; box-shadow: 0 12px 28px #0003; }
+.filters { margin: 20px 0 16px; padding-bottom: 6px; }
+.chip { min-height: 40px; padding: 9px 14px; background: #131e32; box-shadow: none; font-weight: 600; }
+.chip.active { color: #c7e9ff; border-color: #7dbeff59; background: #477bdf26; }
+.empty { border: 1px dashed var(--line); border-radius: 16px; padding: 32px 18px; line-height: 1.6; }
+.bottomnav { width: min(650px, calc(100% - 28px)); bottom: calc(12px + env(safe-area-inset-bottom)); padding: 8px; border-radius: 23px; background: #10192ceb; border-color: #a9c4ff2b; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 12px 45px #0008, inset 0 1px 0 #ffffff0a; }
+.navbtn { display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; min-height: 60px; padding: 8px 4px; background: transparent; color: #99a9c6; font-size: 11px; font-weight: 600; box-shadow: none; border: 1px solid transparent; }
+.navbtn svg { width: 21px; height: 21px; }
+.navbtn.active { background: linear-gradient(140deg, #2e568c66, #53449440); color: #b8e6ff; border-color: #8cb9ff30; box-shadow: inset 0 1px 0 #ffffff0c; }
+.onboarding { background: #060b17ed; overflow-y: auto; backdrop-filter: blur(14px); }
+.onboardCard { margin: auto; }
+.onboardCard .brand { margin-bottom: 28px; }
+.onboardCard h2 { font-size: 32px; letter-spacing: -1px; line-height: 1.15; }
+.step { background: #0d1729; padding: 16px; line-height: 1.5; }
+@media (hover: hover) {
+  button:not(:disabled):hover { filter: brightness(1.12); transform: translateY(-1px); }
+  .upload:hover { border-color: #98cdff; box-shadow: inset 0 0 35px #5388ff12; }
+  #inventoryList .inventoryCard:hover { border-color: #8baeff66; background: #17243b; }
+}
+@media (max-width: 540px) {
+  .app { padding: 20px 16px 28px; }
+  .card { padding: 18px; border-radius: 22px; }
+  .badge { font-size: 10px; }
+  .hero { margin-top: 28px; }
+  .upload { padding: 28px 14px 24px; }
+  .pricebox { padding: 22px 18px; }
+  .inventoryCard, .inventoryCard:first-child { grid-template-columns: 88px minmax(0, 1fr); gap: 8px 14px; padding: 12px; }
+  .thumb { width: 88px; height: 108px; grid-row: span 2; }
+  .inventoryCard > div:last-child { grid-column: 2; text-align: left; }
+  .comp { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .tier { padding: 12px 8px; }
+  .tier b { font-size: 14px; }
+}
+@media (max-width: 390px) {
+  .app { padding-inline: 12px; }
+  .brand { font-size: 22px; gap: 8px; }
+  .badge { padding: 7px 8px; }
+  .card { padding: 15px; }
+  .tiers { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .tier span { font-size: 10px; }
+  .tier b { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
+}
+
 </style>
 </head>
 <body>
@@ -70,12 +212,12 @@ textarea{min-height:120px;resize:vertical}
 </div>
 
 <div class="app">
-<div class="top"><div class="brand"><div class="logo">S</div>SnapWorth</div><div class="badge">v0.9 Inventory</div></div>
+<div class="top"><div class="brand"><div class="logo">S</div>SnapWorth</div><div class="badge">AI product scanner</div></div>
 
 <section id="scanPage" class="page active">
   <div class="hero"><h1>Snap it.<br>Know its worth.</h1><p>From electronics to tools, collectibles, furniture and more.</p></div>
   <div class="card">
-    <label class="upload" for="photo"><div class="cam">📷</div><strong>Take or upload a photo</strong><span>Try to include logos, labels or model numbers.</span><img id="preview"></label>
+    <label class="upload" for="photo"><div class="cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="4"/></svg></div><strong>Take or upload a photo</strong><span>Try to include logos, labels or model numbers.</span><img id="preview"></label>
     <input id="photo" type="file" accept="image/*" capture="environment">
     <button id="identify" disabled>✨ Identify item</button><div id="status" class="status"></div>
   </div>
@@ -179,10 +321,10 @@ textarea{min-height:120px;resize:vertical}
 </div>
 
 <nav class="bottomnav">
-<button class="navbtn active" data-page="scanPage">📷<br>Scan</button>
-<button class="navbtn" data-page="stuffPage">📦<br>My Stuff</button>
-<button class="navbtn" data-page="historyPage">🕘<br>History</button>
-<button class="navbtn" data-page="accountPage">👤<br>Account</button>
+<button class="navbtn active" data-page="scanPage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="4"/></svg><span>Scan</span></button>
+<button class="navbtn" data-page="stuffPage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-5 9 5v10l-9 5-9-5zM3 7l9 5 9-5M12 12v10M7.5 4.5l9 5"/></svg><span>My Stuff</span></button>
+<button class="navbtn" data-page="historyPage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.6 7.4M3 4v7h7M12 7v5l3 2"/></svg><span>History</span></button>
+<button class="navbtn" data-page="accountPage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>Account</span></button>
 </nav>
 
 <script>

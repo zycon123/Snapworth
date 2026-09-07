@@ -12,8 +12,9 @@ import { fileURLToPath } from 'node:url';
 import { validateEnvironment, validatePublicSignup, databaseOptions, PublicError, text, itemInput, storedImage, normalizeImage, identification, fetchJson } from './security.js';
 import { comparableItems, robustValuation } from './pricing.js';
 import { identificationPrompt } from './identification-prompt.js';
+import { accountEmail } from './account-email.js';
 
-export function createApp({env=process.env, database, sessionStore, fetcher=globalThis.fetch, upstreamTimeout=20000, aiDailyLimit=20, searchDailyLimit=100}={}) {
+export function createApp({env=process.env, database, sessionStore, fetcher=globalThis.fetch, sendMail, upstreamTimeout=20000, aiDailyLimit=20, searchDailyLimit=100}={}) {
 validateEnvironment(env);
 validatePublicSignup(env);
 const pool=database || new pg.Pool(databaseOptions(env));
@@ -95,6 +96,7 @@ async function signIn(req,userId){
   await new Promise((resolve,reject)=>req.session.save(e=>e?reject(e):resolve()));
 }
 const cookieOptions={path:'/',httpOnly:true,sameSite:'lax',secure:env.NODE_ENV==='production'};
+const emailAccounts=accountEmail({app,pool,env,limiter:authLimiter,sendMail,fetcher});
 
 
 async function initDatabase(){
@@ -128,12 +130,14 @@ async function initDatabase(){
 
   `);
   await pool.query('DELETE FROM api_usage WHERE window_key < $1',[new Date(Date.now()-2*86400000).toISOString().slice(0,10)]);
+  await emailAccounts.init();
 }
 
 async function auth(req,res,next){
  if(!req.session.userId)return res.status(401).json({error:'Sign in required.'});
- const user=await pool.query('SELECT id,auth_version FROM users WHERE id=$1',[req.session.userId]);
+ const user=await pool.query('SELECT id,auth_version,email_verified FROM users WHERE id=$1',[req.session.userId]);
  if(!user.rows.length || user.rows[0].auth_version !== (req.session.authVersion||0))return res.status(401).json({error:'Sign in required.'});
+ if(emailAccounts.enabled&&!user.rows[0].email_verified)return res.status(403).json({error:'Confirm your email address before continuing.'});
  next();
 }
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:8*1024*1024,files:1,fields:0,parts:2},
@@ -172,6 +176,8 @@ app.post("/api/auth/register",authLimiter,async(req,res)=>{
 
   const user=result.rows[0];
 
+  if(emailAccounts.enabled){await emailAccounts.issue(user,'verify');return res.json({...emailAccounts.generic,verificationRequired:true});}
+
   await signIn(req,user.id);
 
   res.json({
@@ -184,6 +190,7 @@ app.post("/api/auth/register",authLimiter,async(req,res)=>{
  }catch(e){
   if(e instanceof PublicError)return res.status(e.status).json({error:e.message});
   if(e.code==="23505"){
+   if(emailAccounts.enabled)return res.json({...emailAccounts.generic,verificationRequired:true});
    return res.status(409).json({error:"Account already exists."});
   }
 
@@ -199,7 +206,7 @@ app.post("/api/auth/login",authLimiter,async(req,res)=>{
   if(typeof password!=='string')throw new PublicError(400,'Enter your password.'); // Preserve legacy bcrypt password semantics at login.
 
   const result=await pool.query(
-   "SELECT id,email,password_hash FROM users WHERE email=$1",
+   "SELECT id,email,password_hash,email_verified FROM users WHERE email=$1",
    [email]
   );
 
@@ -208,6 +215,8 @@ app.post("/api/auth/login",authLimiter,async(req,res)=>{
   if(!u || !(await bcrypt.compare(password,u.password_hash))){
    return res.status(401).json({error:"Invalid email or password."});
   }
+
+  if(emailAccounts.enabled&&!u.email_verified)return res.status(403).json({error:'Confirm your email first. Use Resend confirmation if you need a new link.'});
 
   await signIn(req,u.id);
 
@@ -261,12 +270,12 @@ app.get("/api/auth/me",async(req,res)=>{
   }
 
   const result=await pool.query(
-   "SELECT id,email,auth_version FROM users WHERE id=$1",
+   "SELECT id,email,auth_version,email_verified FROM users WHERE id=$1",
    [req.session.userId]
   );
 
   res.json({
-   user:result.rows[0] && result.rows[0].auth_version === (req.session.authVersion||0) ? {id:result.rows[0].id,email:result.rows[0].email} : null
+   user:result.rows[0] && (!emailAccounts.enabled||result.rows[0].email_verified) && result.rows[0].auth_version === (req.session.authVersion||0) ? {id:result.rows[0].id,email:result.rows[0].email} : null
   });
 
  }catch(e){

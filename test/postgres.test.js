@@ -35,6 +35,24 @@ test('PostgreSQL migration, persistent sessions and concurrent quotas', {skip: !
     assert.equal(attempts.filter(r=>r.rows[0].count<=20).length,20);
     await request(second.app).post('/api/auth/password').set('Cookie',cookie).send({password:'test password',newPassword:'replacement password'}).expect(200);
     await request(first.app).get('/api/items').set('Cookie',cookie).expect(401);
+    const mail=[];
+    const verified=createApp({database:pool,env:{...env,EMAIL_VERIFICATION_REQUIRED:'true',PUBLIC_ORIGIN:'https://snapworth.example'},sendMail:async message=>mail.push(message)});
+    await verified.initDatabase();
+    await request(verified.app).post('/api/auth/login').send({email:'integration@example.test',password:'replacement password'}).expect(403);
+    await request(verified.app).post('/api/auth/resend-verification').send({email:'integration@example.test'}).expect(200);
+    const tokenFrom = message => Object.fromEntries(new URLSearchParams(new URL(message.text.match(/https:\/\/\S+/)[0]).hash.slice(1)));
+    const verification=tokenFrom(mail[0]);
+    const confirmations=await Promise.all([1,2].map(()=>request(verified.app).post('/api/auth/complete-email').send(verification)));
+    assert.deepEqual(confirmations.map(x=>x.status).sort(),[200,400]);
+    const signedIn=await request(verified.app).post('/api/auth/login').send({email:'integration@example.test',password:'replacement password'}).expect(200);
+    const verifiedCookie=signedIn.headers['set-cookie'][0].split(';')[0];
+    await pool.query("DELETE FROM api_usage WHERE key LIKE 'email:%'");
+    await request(verified.app).post('/api/auth/forgot-password').send({email:'integration@example.test'}).expect(200);
+    const reset={...tokenFrom(mail[1]),password:'recovered password'};
+    const resets=await Promise.all([1,2].map(()=>request(verified.app).post('/api/auth/complete-email').send(reset)));
+    assert.deepEqual(resets.map(x=>x.status).sort(),[200,400]);
+    await request(verified.app).get('/api/items').set('Cookie',verifiedCookie).expect(401);
+    await request(verified.app).post('/api/auth/login').send({email:'integration@example.test',password:'recovered password'}).expect(200);
   } finally {
     await pool.end();
   }

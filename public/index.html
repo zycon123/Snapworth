@@ -449,7 +449,7 @@ textarea { min-height: 146px; }
     <div id="authLoggedOut">
       <div class="grid"><div><label class="small" for="authEmail">Email</label><input id="authEmail" type="email" placeholder="you@example.com"></div><div><label class="small" for="authPassword">Password</label><input id="authPassword" type="password" placeholder="8+ characters"></div></div>
       <p class="meta">Before creating an account, read our <a href="/terms.html">Terms</a> and <a href="/privacy.html">Privacy notice</a>.</p>
-      <button id="registerBtn">Create account</button><button id="loginBtn" class="secondary">Sign in</button><div id="authStatus" class="status"></div>
+      <button id="registerBtn">Create account</button><button id="loginBtn" class="secondary">Sign in</button><button id="resendVerification" class="secondary">Resend confirmation</button><button id="forgotPassword" class="secondary">Forgot password</button><div id="authStatus" class="status" role="status"></div>
     </div>
     <div id="authLoggedIn" class="hidden"><div class="sectionTitle">Signed in</div><div id="accountEmail" class="meta"></div><label class="small" for="currentPassword">Current password</label><input id="currentPassword" type="password" autocomplete="current-password">
 <label class="small" for="newPassword">New password</label><input id="newPassword" type="password" autocomplete="new-password">
@@ -1107,7 +1107,8 @@ $('saveItem').onclick=action('saveItem',async()=>{
  await loadCloudItems();$('actionStatus').textContent='Saved to My Stuff.';
 });
 $('copy').onclick=async()=>{await navigator.clipboard.writeText($('salesTitle').value+'\n\n'+$('salesText').value);$('copy').textContent='✓ Copied';setTimeout(()=>$('copy').textContent='Copy sales listing',1200)}
-$('registerBtn').onclick=async()=>{try{await api('/api/auth/register',{method:'POST',body:JSON.stringify({email:$('authEmail').value,password:$('authPassword').value})});$('authStatus').textContent='Account created.';await refreshAuth()}catch(e){$('authStatus').textContent=e.message}}
+$('registerBtn').onclick=action('registerBtn',async()=>{try{const result=await api('/api/auth/register',{method:'POST',body:JSON.stringify({email:$('authEmail').value,password:$('authPassword').value})});$('authStatus').textContent=result.verificationRequired?'Check your email to confirm your account. If you already have an account, sign in or request a new link.':'Account created.';$('authPassword').value='';await refreshAuth()}catch(e){$('authStatus').textContent=e.message}});
+for(const [id,path] of [['resendVerification','resend-verification'],['forgotPassword','forgot-password']])$(id).onclick=action(id,async()=>{try{const result=await api('/api/auth/'+path,{method:'POST',body:JSON.stringify({email:$('authEmail').value})});$('authStatus').textContent=result.message}catch(e){$('authStatus').textContent=e.message}});
 $('loginBtn').onclick=async()=>{try{await api('/api/auth/login',{method:'POST',body:JSON.stringify({email:$('authEmail').value,password:$('authPassword').value})});$('authStatus').textContent='';await refreshAuth()}catch(e){$('authStatus').textContent=e.message}}
 $('changePassword').onclick=action('changePassword',async()=>{
  await api('/api/auth/password',{method:'POST',body:JSON.stringify({password:$('currentPassword').value,newPassword:$('newPassword').value})});

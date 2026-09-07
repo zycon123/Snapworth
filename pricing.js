@@ -16,9 +16,21 @@ function productType(query) {
   return Object.keys(types).find(type=>types[type].some(word=>has(query,word)));
 }
 const accessory = ['storage album','display stand','stand','holder','binder','album','case only','box only','empty box','manual only','guide','no disc','no game','for parts','not working','replacement','compatible with','cover','shell','keychain','sticker','poster','strap','cable','adapter'];
+// Extra variant evidence must not silently turn a base model into a different product.
+const variants = ['pro','max','mini','plus','ultra','lite','slim','oled','digital','holo','reverse holo','first edition','1st edition','psa','bgs','cgc','graded'];
+function typeIndependentTerms(value, type) {
+  let words = ' '+normalize(value)+' ';
+  for (const alias of [...types[type]].sort((a,b)=>b.length-a.length)) {
+    words = words.replaceAll(' '+normalize(alias)+' ', ' ');
+  }
+  return words.trim().split(/\s+/).filter(word=>word && !['the','a','an','used','good','condition'].includes(word));
+}
 export function relevantListing(title, query, market) {
   const type = productType(query);
   if (!type) return false; // A broad name alone is insufficient for a price estimate.
+  if (variants.some(word=>has(title,word)!==has(query,word))) return false;
+  const numbers = value => normalize(value).match(/\b\d+(?:gb|tb|mb)?\b/g)||[];
+  if (numbers(title).some(number=>!numbers(query).includes(number))) return false;
   if (accessory.some(word=>has(title,word)&&!has(query,word))) return false;
   if (['bundle','lot','sealed','collector','collectors','complete in box','cib'].some(word=>has(title,word)&&!has(query,word))) return false;
   if (['EBAY_GB','EBAY_DE'].includes(market) && /\b(ntsc|japanese|japan)\b/.test(normalize(title)) && !/\b(ntsc|japanese|japan)\b/.test(normalize(query))) return false;
@@ -27,7 +39,7 @@ export function relevantListing(title, query, market) {
   if ((conflicts[type]||[]).some(other=>types[other].some(word=>has(title,word))&&!types[other].some(word=>has(query,word)))) return false;
   // The target type must be stated, including for an inferred console query.
   if (!types[type].some(word=>has(title,word))) return false;
-  const terms=normalize(query).split(' ').filter(word=>!['the','a','an','used','good','condition'].includes(word));
+  const terms=typeIndependentTerms(query,type);
   return terms.length > 0 && terms.every(word=>has(title,word));
 }
 export function comparableItems(listings, query, market, currency) {

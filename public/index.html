@@ -194,6 +194,36 @@ textarea { min-height: 146px; }
   *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
 }
 
+/* AI Scanner v2: request-driven visual feedback, with no request delays. */
+.scanPreview { display: block; position: relative; isolation: isolate; border-radius: 16px; }
+.scanPreview.is-scanning { box-shadow: 0 0 0 1px #79dfff70, 0 0 30px #3bafff30; }
+.scanPreview.is-scanning::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(90deg, transparent, #a5f5ff, #71bbff, transparent) no-repeat;
+  background-size: 100% 2px; animation: scannerSweep 2.4s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 5px #79dfff);
+}
+@keyframes scannerSweep { from { background-position: 0 2%; } to { background-position: 0 98%; } }
+.status.is-working { display: flex; align-items: center; justify-content: center; gap: 9px; color: #bceaff; }
+.status.is-working::before { content: ''; width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #83deff; box-shadow: 0 0 12px #65ccff70; animation: scannerPulse 1.6s ease-in-out infinite; }
+@keyframes scannerPulse { 50% { opacity: .4; } }
+#marketStatus { min-height: 22px; }
+#identifyCard .itemName { font-size: clamp(24px, 5vw, 30px); color: #eef8ff; }
+#identifyCard .meta { color: #bccce8; font-size: 13px; line-height: 1.7; margin-top: 8px; }
+#identifyCard .confidence { box-shadow: 0 0 20px #45b3ea10; font-weight: 700; }
+.result-reveal { animation: resultReveal .45s ease-out both; }
+@keyframes resultReveal { from { opacity: .25; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+#valueCard .pricebox { border-color: #85cfff75; background: radial-gradient(ellipse at 85% 0, #705ff345, transparent 70%), linear-gradient(130deg, #153853, #171e3b); }
+#fair { font-size: clamp(40px, 10vw, 68px); line-height: 1.12; margin: 16px 0; }
+#valueCard.price-reveal .pricebox { animation: resultReveal .5s ease-out both; }
+#valueCard.price-reveal #fair { animation: priceReveal .6s ease-out both; }
+@keyframes priceReveal { from { opacity: .3; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.tier span { display: block; line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) {
+  .scanPreview.is-scanning::after { animation: none; background: none; filter: none; }
+  .status.is-working::before, .result-reveal, #valueCard.price-reveal .pricebox, #valueCard.price-reveal #fair { animation: none; }
+}
+
 </style>
 </head>
 <body>
@@ -217,9 +247,9 @@ textarea { min-height: 146px; }
 <section id="scanPage" class="page active">
   <div class="hero"><h1>Snap it.<br>Know its worth.</h1><p>From electronics to tools, collectibles, furniture and more.</p></div>
   <div class="card">
-    <label class="upload" for="photo"><div class="cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="4"/></svg></div><strong>Take or upload a photo</strong><span>Try to include logos, labels or model numbers.</span><img id="preview"></label>
+    <label class="upload" for="photo"><div class="cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="4"/></svg></div><strong>Take or upload a photo</strong><span>Try to include logos, labels or model numbers.</span><span class="scanPreview" id="scanPreview"><img id="preview"></span></label>
     <input id="photo" type="file" accept="image/*" capture="environment">
-    <button id="identify" disabled>✨ Identify item</button><div id="status" class="status"></div>
+    <button id="identify" disabled>✨ Identify item</button><div id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
 
   <div id="identifyCard" class="card hidden">
@@ -238,6 +268,7 @@ textarea { min-height: 146px; }
 </div>
 </div>
     <button id="compsBtn">🔎 Find comparable listings</button>
+    <div id="marketStatus" class="status hidden" role="status" aria-live="polite" aria-atomic="true"></div>
 
     <div style="margin-top:14px">
       <div class="sectionTitle">Search this item</div>
@@ -256,7 +287,7 @@ textarea { min-height: 146px; }
   <div id="valueCard" class="card hidden">
     <div id="source" class="meta"></div>
     <div class="pricebox"><span>Recommended listing price</span><div id="fair" class="price"></div><div id="range" class="range"></div></div>
-    <div class="tiers"><div class="tier"><span>⚡ Quick sale</span><b id="quick"></b></div><div class="tier"><span>🏷 Fair</span><b id="mid"></b></div><div class="tier"><span>✨ Top price</span><b id="top"></b></div></div>
+    <div class="tiers"><div class="tier"><span>⚡ Quick Sale</span><b id="quick"></b></div><div class="tier"><span>🏷 Fair Price</span><b id="mid"></b></div><div class="tier"><span>✨ Top Price</span><b id="top"></b></div></div>
     <div id="stats" class="notice"></div>
     <div style="margin-top:14px"><div class="sectionTitle">Best matches</div><div id="compList"></div></div>
     <label class="small">Sales title</label><input id="salesTitle">
@@ -329,6 +360,32 @@ textarea { min-height: 146px; }
 
 <script>
 const $=id=>document.getElementById(id);
+// Cosmetic stages only: they do not represent backend progress or gate requests.
+function beginVisualProgress(statusId, messages, busyId){
+ const status=$(statusId), busy=$(busyId);
+ let stage=0;
+ status.classList.remove('hidden');
+ status.classList.add('is-working');
+ status.textContent=messages[stage];
+ busy.setAttribute('aria-busy','true');
+ const timer=setInterval(()=>{
+  if(stage<messages.length-1) status.textContent=messages[++stage];
+ },1800);
+ return ()=>{
+  clearInterval(timer);
+  status.classList.remove('is-working');
+  busy.removeAttribute('aria-busy');
+ };
+}
+function revealVisualResult(id, className){
+ const card=$(id);
+ card.classList.remove(className);
+ // Restart a short CSS reveal for subsequent successful scans as well.
+ void card.offsetWidth;
+ card.classList.add(className);
+}
+
+
 let file=null,identified=null,lastValuation=null,cloudUser=null,cloudItems=[],activeCategory="All";
 const HISTORY_KEY="snapworth_history_v07";
 
@@ -389,6 +446,8 @@ $('identify').onclick=async()=>{
 
  $('identify').disabled=true;
  $('status').textContent='Analyzing image…';
+ const stopScanProgress=beginVisualProgress('status',['Analyzing image…','Detecting item…','Identifying brand and model…','Preparing market search…'],'scanPreview');
+ $('scanPreview').classList.add('is-scanning');
 
  try{
   const compressed=await imageToUploadBlob(file);
@@ -454,6 +513,7 @@ $('query').value=
  : (d.search_query || [d.brand,d.model].filter(Boolean).join(' ') || d.item_name || '');
 
   $('identifyCard').classList.remove('hidden');
+  revealVisualResult('identifyCard','result-reveal');
   $('identifyCard').scrollIntoView({behavior:'smooth'});
 
  if(d.demo){
@@ -469,6 +529,8 @@ $('query').value=
  }catch(e){
   $('status').textContent='Identification failed: '+e.message;
  }finally{
+  stopScanProgress();
+  $('scanPreview').classList.remove('is-scanning');
   $('identify').disabled=false;
  }
 };
@@ -541,6 +603,8 @@ $('compsBtn').onclick=async()=>{
 
  $('compsBtn').disabled=true;
  $('compsBtn').textContent='Searching marketplace…';
+ const stopMarketProgress=beginVisualProgress('marketStatus',['Searching marketplace…','Comparing similar listings…','Filtering relevant results…','Calculating recommended price…'],'compsBtn');
+ $('valueCard').classList.remove('price-reveal');
 
  try{
   const r=await fetch('/api/comps?'+new URLSearchParams({
@@ -613,6 +677,7 @@ return;
   $('copy').disabled=false;
 
   renderValue(d,q);
+  revealVisualResult('valueCard','price-reveal');
 
  }catch(e){
   $('valueCard').classList.remove('hidden');
@@ -629,6 +694,9 @@ return;
   $('valueCard').scrollIntoView({behavior:'smooth'});
 
  }finally{
+  stopMarketProgress();
+  $('marketStatus').textContent='';
+  $('marketStatus').classList.add('hidden');
   $('compsBtn').disabled=false;
   $('compsBtn').textContent='🔎 Find comparable listings';
  }

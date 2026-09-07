@@ -260,6 +260,43 @@ textarea { min-height: 146px; }
  #valueCard .tier { padding: 12px 8px; }
 }
 
+/* My Stuff v2: saved collection data, always separated by currency. */
+.collectionHero .sectionTitle { font-size: 12px; letter-spacing: 1.6px; color: #b9d5f4; }
+#inventoryTotal { display: grid; gap: 12px; font-size: clamp(24px,6vw,40px); letter-spacing: -1px; }
+#inventoryTotal > div { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+#inventoryTotal strong { color: #b2e9ff; }
+.collectionStats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:16px; }
+.collectionStat { min-width:0; padding:16px; background:#0c162a99; border:1px solid var(--line); border-radius:15px; }
+.collectionStat > span { color:var(--muted); font-size:11px; }
+.collectionStat > div { color:#d1e8ff; font-size:18px; font-weight:700; margin-top:8px; overflow-wrap:anywhere; }
+.collectionStat small { display:block; font-size:11px; color:var(--muted); font-weight:400; margin-top:4px; }
+.collectionStat > div > div + div { margin-top:12px; }
+#categoryBreakdown { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:16px; }
+.categorySummary { min-width:0; padding:15px; border:1px solid var(--line); border-radius:15px; background:#14213766; font-size:12px; overflow-wrap:anywhere; }
+.categorySummary > strong { display:block; line-height:1.5; }
+.categorySummary small { display:block; color:var(--muted); margin:5px 0 12px; }
+.categorySummary > div { color:#b8def4; line-height:1.8; }
+.collectionControls { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:12px; }
+.collectionControls > div { min-width:0; }
+#inventoryResults { margin:12px 0 16px; color:var(--muted); font-size:12px; line-height:1.6; }
+.collectionItem, .collectionItem:first-child { width:100%; text-align:left; margin:0; box-shadow:none; color:var(--text); font-weight:400; grid-template-columns:112px minmax(0,1fr); gap:8px 16px; }
+.collectionItem .thumb { width:112px; height:126px; grid-row:span 2; }
+.collectionItemInfo, .collectionItemValue { display:block; min-width:0; }
+.collectionItemInfo > span, .collectionItemValue > span { display:block; }
+.collectionItemValue { grid-column:2; }
+.collectionItem .compPrice { font-size:18px; }
+.imagePlaceholder { display:grid; place-items:center; color:#9ecaff; font-size:34px; }
+.currencyHeading { margin:12px 2px 0; font-size:12px; color:#a9c4eb; font-weight:700; letter-spacing:1px; }
+.collectionEmpty { text-align:center; padding:28px 14px; border:1px dashed #a4c9ff33; border-radius:20px; background:radial-gradient(ellipse at top,#578bff17,transparent 70%); }
+.emptySymbol { width:64px; height:64px; display:grid; place-items:center; margin:0 auto 16px; font-size:38px; color:#a4e2ff; border-radius:20px; background:#6489ff18; border:1px solid #9ecfff30; }
+.collectionEmpty h2 { font-size:22px; margin:0 0 10px; letter-spacing:-.5px; }
+.collectionEmpty p { font-size:13px; line-height:1.7; color:var(--muted); }
+#detailFacts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:20px 0; }
+#detailFacts > div { min-width:0; background:#0b162780; border:1px solid var(--line); border-radius:12px; padding:12px; }
+#detailFacts dt { color:var(--muted); font-size:11px; }
+#detailFacts dd { margin:6px 0 0; color:#dceaff; font-size:13px; overflow-wrap:anywhere; }
+@media(max-width:540px){.collectionControls{grid-template-columns:1fr}.collectionItem .thumb{width:88px;height:112px}.collectionItem,.collectionItem:first-child{grid-template-columns:88px minmax(0,1fr);gap:8px 12px}.collectionItem .compPrice{font-size:16px}}
+
 </style>
 </head>
 <body>
@@ -344,10 +381,25 @@ textarea { min-height: 146px; }
 
 <section id="stuffPage" class="page">
   <div class="hero"><h1>My Stuff</h1><p>Your saved items and estimated total resale value.</p></div>
+  <div class="card collectionHero">
+    <div class="row"><div><div class="sectionTitle">MY COLLECTION</div><div class="sectionSub">Cloud-synced when signed in</div></div><div id="inventoryCount" class="confidence">0 items</div></div>
+    <div class="pricebox"><span>Total estimated value</span><div id="inventoryTotal" class="price">0</div><div id="inventoryNote" class="range">Sign in to start building your inventory.</div></div>
+    <div class="collectionStats">
+      <div class="collectionStat"><span>Total items</span><div id="collectionItemCount">0</div></div>
+      <div class="collectionStat"><span>Categories represented</span><div id="collectionCategoryCount">0</div></div>
+      <div class="collectionStat"><span>Highest-value item · per currency</span><div id="collectionHigh">—</div></div>
+      <div class="collectionStat"><span>Average item value · per currency</span><div id="collectionAverage">—</div></div>
+    </div>
+  </div>
+  <div id="collectionBreakdown" class="card hidden"><div class="sectionTitle">By category</div><div id="categoryBreakdown"></div></div>
   <div class="card">
-    <div class="row"><div><div class="sectionTitle">Inventory</div><div class="sectionSub">Cloud-synced when signed in</div></div><div id="inventoryCount" class="confidence">0 items</div></div>
-    <div class="pricebox"><span>Estimated inventory value</span><div id="inventoryTotal" class="price">0</div><div id="inventoryNote" class="range">Sign in to start building your inventory.</div></div>
+    <div class="sectionTitle">Your items</div>
+    <div class="collectionControls">
+      <div><label class="small" for="inventorySearch">Search collection</label><input id="inventorySearch" type="search" placeholder="Name, brand, model or category"></div>
+      <div><label class="small" for="inventorySort">Sort by</label><select id="inventorySort"><option value="recent">Recently added</option><option value="high">Highest value</option><option value="low">Lowest value</option><option value="name">Name A–Z</option></select></div>
+    </div>
     <div id="categoryFilters" class="filters"></div>
+    <div id="inventoryResults" role="status" aria-live="polite"></div>
     <div id="inventoryList"></div>
   </div>
 </section>
@@ -372,6 +424,7 @@ textarea { min-height: 146px; }
       <div id="detailFair" class="price"></div>
       <div id="detailRange" class="range"></div>
     </div>
+    <dl id="detailFacts"></dl>
     <label class="small">Condition</label>
     <select id="detailCondition">
       <option>Like new</option><option>Very good</option><option>Good</option><option>Fair</option><option>Poor</option>
@@ -870,24 +923,87 @@ async function refreshAuth(){
  if(cloudUser){$('accountEmail').textContent=cloudUser.email;await loadCloudItems()}else{cloudItems=[];renderInventory()}
 }
 async function loadCloudItems(){const d=await api("/api/items");cloudItems=d.items||[];renderInventory()}
-function renderFilters(){
- const cats=["All",...new Set(cloudItems.map(x=>x.category||"Other"))];
- $('categoryFilters').innerHTML=cats.map(c=>`<button class="chip ${c===activeCategory?'active':''}" onclick="setCategory('${esc(c)}')">${esc(c)}</button>`).join('');
+function inventoryCategory(x){return x.category||'Other'}
+function inventoryCurrency(x){return x.currency||'Unknown currency'}
+function inventoryAmount(x){return x.value!==null&&x.value!==''&&Number.isFinite(Number(x.value))?Number(x.value):null}
+function inventoryMoney(value,currency){return currency+' '+new Intl.NumberFormat(undefined,{maximumFractionDigits:0}).format(value)}
+function inventoryDate(value){const date=new Date(value);return value&&!Number.isNaN(date.getTime())?date.toLocaleDateString():''}
+function inventoryGroups(items){
+ const groups=new Map();
+ for(const x of items){const currency=inventoryCurrency(x);if(!groups.has(currency))groups.set(currency,[]);groups.get(currency).push(x)}
+ return [...groups].sort(([a],[b])=>a.localeCompare(b));
 }
-window.setCategory=c=>{activeCategory=c;renderInventory()}
+function collectionTotals(items){
+ return inventoryGroups(items).map(([currency,group])=>{
+  const values=group.map(inventoryAmount).filter(x=>x!==null);
+  return `<div>${esc(currency)} <strong>${values.length?esc(new Intl.NumberFormat(undefined,{maximumFractionDigits:0}).format(values.reduce((a,b)=>a+b,0))):'Value unavailable'}</strong></div>`;
+ }).join('');
+}
+let inventoryVisibleLimit=48;
+function renderFilters(){
+ const cats=[...new Set(cloudItems.map(inventoryCategory))].sort((a,b)=>a.localeCompare(b));
+ if(activeCategory!=='All'&&!cats.includes(activeCategory))activeCategory='All';
+ $('categoryFilters').innerHTML=['All',...cats].map(c=>`<button class="chip ${c===activeCategory?'active':''}" data-category="${esc(c)}" aria-pressed="${c===activeCategory}">${esc(c)}</button>`).join('');
+}
+window.setCategory=c=>{activeCategory=c;inventoryVisibleLimit=48;renderInventory()};
+$('categoryFilters').onclick=e=>{const button=e.target.closest('[data-category]');if(button)setCategory(button.dataset.category)};
+$('inventorySearch').oninput=()=>{inventoryVisibleLimit=48;renderInventory()};
+$('inventorySort').onchange=()=>{inventoryVisibleLimit=48;renderInventory()};
+$('inventoryList').onclick=e=>{const card=e.target.closest('[data-item-id]');if(card)openItem(card.dataset.itemId);if(e.target.closest('[data-more-items]')){inventoryVisibleLimit+=48;renderInventory()}if(e.target.closest('[data-start-scan]'))showPage('scanPage')};
 function renderInventory(){
  renderFilters();
- const items=activeCategory==="All"?cloudItems:cloudItems.filter(x=>(x.category||"Other")===activeCategory);
- $('inventoryCount').textContent=cloudItems.length+(cloudItems.length===1?' item':' items');
- if(!cloudItems.length){$('inventoryTotal').textContent='0';$('inventoryNote').textContent=cloudUser?'Your cloud inventory is empty.':'Sign in to save and sync your inventory.';$('inventoryList').innerHTML='<div class="empty">Nothing saved yet.</div>';return}
- const byCurrency={};cloudItems.forEach(x=>byCurrency[x.currency]=(byCurrency[x.currency]||0)+Number(x.value));
- $('inventoryTotal').textContent=Object.entries(byCurrency).map(([c,v])=>money(v,c)).join(' + ');$('inventoryNote').textContent='Estimated fair resale value across saved items.';
- $('inventoryList').innerHTML=items.length?items.map(x=>`<div class="inventoryCard" onclick="openItem(${x.id})" style="cursor:pointer">
-   ${x.image_data?`<img class="thumb" src="${x.image_data}">`:`<div class="thumb" style="display:grid;place-items:center">📦</div>`}
-   <div><div class="compTitle">${esc(x.name)}</div><div class="compMeta">${esc(x.category||'Other')} • ${esc(x.condition||'')} • ${new Date(x.saved_at).toLocaleDateString()}</div></div>
-   <div><div class="compPrice">${money(Number(x.value),x.currency)}</div><div class="compMeta">View ›</div></div>
- </div>`).join(''):'<div class="empty">No items in this category.</div>';
+ $('inventoryCount').textContent=cloudItems.length+(cloudItems.length===1?' item saved':' items saved');
+ $('inventoryTotal').innerHTML=cloudItems.length?collectionTotals(cloudItems):'0';
+ $('inventoryNote').textContent=cloudUser?'Saved estimates, not guaranteed sale prices. Currencies are shown separately.':'Sign in to save and sync your collection.';
+ $('collectionItemCount').textContent=cloudItems.length;
+ $('collectionCategoryCount').textContent=new Set(cloudItems.map(inventoryCategory)).size;
+ const groups=inventoryGroups(cloudItems);
+ $('collectionHigh').innerHTML=groups.map(([currency,items])=>{
+  const valid=items.filter(x=>inventoryAmount(x)!==null);
+  const highest=valid.reduce((best,x)=>!best||inventoryAmount(x)>inventoryAmount(best)?x:best,null);
+  return highest?`<div><strong>${esc(inventoryMoney(inventoryAmount(highest),currency))}</strong><small>${esc(highest.name)}</small></div>`:'';
+ }).join('')||'—';
+ $('collectionAverage').innerHTML=groups.map(([currency,items])=>{
+  const values=items.map(inventoryAmount).filter(x=>x!==null);
+  return values.length?`<div>${esc(inventoryMoney(values.reduce((a,b)=>a+b,0)/values.length,currency))}</div>`:'';
+ }).join('')||'—';
+ const categories=[...new Set(cloudItems.map(inventoryCategory))].sort((a,b)=>a.localeCompare(b));
+ $('categoryBreakdown').innerHTML=categories.map(category=>{
+  const items=cloudItems.filter(x=>inventoryCategory(x)===category);
+  return `<div class="categorySummary"><strong>${esc(category)}</strong><small>${items.length} ${items.length===1?'item':'items'}</small><div>${collectionTotals(items)}</div></div>`;
+ }).join('');
+ $('collectionBreakdown').classList.toggle('hidden',!cloudItems.length);
+ const query=$('inventorySearch').value.trim().toLocaleLowerCase();
+ const sort=$('inventorySort').value;
+ const items=cloudItems.filter(x=>(activeCategory==='All'||inventoryCategory(x)===activeCategory)&&[x.name,x.brand,x.model,inventoryCategory(x)].filter(Boolean).join(' ').toLocaleLowerCase().includes(query));
+ items.sort((a,b)=>{
+  if(sort==='name')return String(a.name||'').localeCompare(String(b.name||''));
+  if(sort==='high'||sort==='low'){
+   const currency=inventoryCurrency(a).localeCompare(inventoryCurrency(b));if(currency)return currency;
+   const av=inventoryAmount(a),bv=inventoryAmount(b);if(av===null)return bv===null?0:1;if(bv===null)return -1;
+   return sort==='high'?bv-av:av-bv;
+  }
+  const time=x=>{const t=Date.parse(x.saved_at);return Number.isFinite(t)?t:0};return time(b)-time(a);
+ });
+ $('inventoryResults').textContent=`${items.length} of ${cloudItems.length} items${sort==='high'||sort==='low'?' · Values sorted within each currency':''}`;
+ if(!cloudItems.length){$('inventoryList').innerHTML='<div class="collectionEmpty"><div class="emptySymbol" aria-hidden="true">◇</div><h2>Your collection starts here.</h2><p>Scan an item to explore its estimated value, then save it to My Stuff.</p><button data-start-scan>Scan your first item</button></div>';return}
+ if(!items.length){$('inventoryList').innerHTML='<div class="empty">No items match your search and category. Try another search or select All.</div>';return}
+ let lastCurrency=null;
+ $('inventoryList').innerHTML=items.slice(0,inventoryVisibleLimit).map(x=>{
+  const currency=inventoryCurrency(x),value=inventoryAmount(x),date=inventoryDate(x.saved_at);
+  const heading=(sort==='high'||sort==='low')&&lastCurrency!==currency?`<div class="currencyHeading">${esc(currency)}</div>`:'';lastCurrency=currency;
+  return `${heading}<button class="inventoryCard collectionItem" data-item-id="${esc(x.id)}">
+   ${x.image_data?`<img class="thumb" src="${esc(x.image_data)}" alt="" loading="lazy">`:'<span class="thumb imagePlaceholder" aria-hidden="true">◇</span>'}
+   <span class="collectionItemInfo"><span class="compTitle">${esc(x.name)}</span>${x.brand||x.model?`<span class="compMeta">${esc([x.brand,x.model].filter(Boolean).join(' · '))}</span>`:''}<span class="compMeta">${esc(inventoryCategory(x))}${date?' · '+esc(date):''}</span></span>
+   <span class="collectionItemValue"><span class="compPrice">${value===null?'Value unavailable':esc(inventoryMoney(value,currency))}</span><span class="compMeta">Saved estimate · View ›</span></span>
+  </button>`;
+ }).join('')+(items.length>inventoryVisibleLimit?'<button class="secondary" data-more-items>Show more items ('+(items.length-inventoryVisibleLimit)+' remaining)</button>':'');
 }
+function renderCollectionDetail(x){
+ const fields=[['Brand',x.brand],['Model',x.model],['Category',x.category],['Condition',x.condition],['Currency',x.currency],['Saved',inventoryDate(x.saved_at)],['Original search',x.search_query||x.original_search_query]];
+ $('detailFacts').innerHTML=fields.filter(([,value])=>value).map(([label,value])=>`<div><dt>${label}</dt><dd>${esc(value)}</dd></div>`).join('');
+}
+
 window.removeInventory=async id=>{await api('/api/items/'+id,{method:'DELETE'});await loadCloudItems()}
 
 
@@ -913,7 +1029,7 @@ function showPage(id){
 }
 window.openItem=async id=>{
  try{
-  const d=await api('/api/items/'+id);const x=d.item;activeItemId=x.id;
+  const d=await api('/api/items/'+id);const x=d.item;activeItemId=x.id;renderCollectionDetail(x);
   $('detailName').textContent=x.name;$('detailMeta').textContent=[x.category,x.condition,new Date(x.saved_at).toLocaleDateString()].filter(Boolean).join(' • ');
   $('detailPrice').textContent=money(Number(x.value),x.currency);$('detailFair').textContent=money(Number(x.value),x.currency);
   $('detailRange').textContent=(x.low&&x.high)?`Estimated range: ${money(Number(x.low),x.currency)} – ${money(Number(x.high),x.currency)}`:'No stored range';
@@ -930,7 +1046,7 @@ $('saveDetail').onclick=async()=>{
 };
 $('deleteDetail').onclick=async()=>{
  if(!activeItemId)return;
- if(!confirm('Delete this saved item?'))return;
+ if(!confirm('Delete “'+$('detailName').textContent+'” from My Stuff? This cannot be undone.'))return;
  await api('/api/items/'+activeItemId,{method:'DELETE'});activeItemId=null;await loadCloudItems();showPage('stuffPage');
 };
 $('searchDetail').onclick=()=>{

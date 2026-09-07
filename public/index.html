@@ -224,6 +224,42 @@ textarea { min-height: 146px; }
   .status.is-working::before, .result-reveal, #valueCard.price-reveal .pricebox, #valueCard.price-reveal #fair { animation: none; }
 }
 
+/* Recommended Price v2: evidence and hierarchy, without price adjustments. */
+.priceContext { display: grid; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #a4d8ff26; }
+.priceFacts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.priceCurrency, .priceMarket { color: #c5e8ff; font-size: 11px; font-weight: 700; padding: 5px 9px; border-radius: 7px; background: #78bfff15; border: 1px solid #92cdff25; }
+.priceCount { color: #c8d8ed; font-size: 12px; line-height: 1.6; }
+.priceConfidence { display: inline-block; width: fit-content; border: 1px solid #98b4d54d; background: #718bab15; border-radius: 999px; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #c2d3e9; }
+.priceConfidence[data-level="high"] { color: #a7eddf; border-color: #7acfb750; background: #509e8c18; }
+.priceConfidence[data-level="medium"] { color: #b9dfff; border-color: #7cbded50; }
+.priceConfidence[data-level="low"] { color: #ecd6ae; border-color: #c8a77550; background: #98774018; }
+.confidenceReason { margin: 0; color: #aebfd9; font-size: 11px; line-height: 1.6; }
+.marketInsight { margin-top: 16px; padding: 16px 18px; background: #6f9bdf0b; border: 1px solid var(--line); border-radius: 15px; }
+.marketInsight h3 { margin: 0 0 7px; font-size: 13px; color: #d0e5ff; font-weight: 650; }
+.marketInsight p { margin: 0; font-size: 12px; line-height: 1.7; color: #b8c8e0; }
+#valueCard .tier { display: flex; flex-direction: column; gap: 5px; padding: 15px 10px; }
+#valueCard .tier > span { letter-spacing: .6px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+#valueCard .tier b { font-size: clamp(14px, 3vw, 20px); margin: 3px 0; }
+.tier small { font-size: 10px; line-height: 1.6; color: #aabbd5; }
+#valueCard .tier:nth-child(2) { background: linear-gradient(145deg, #24457099, #2c285966); border-color: #9abaff80; box-shadow: 0 0 20px #597dff12; }
+#valueCard .tier:nth-child(2) b { color: #b6edff; }
+.evidenceComp { grid-template-columns: minmax(0,1fr) auto; }
+.evidenceComp.has-image { grid-template-columns: 72px minmax(0,1fr) auto; }
+.compImage { width: 72px; height: 80px; object-fit: contain; border-radius: 10px; background: #18243a; }
+.evidenceComp .compTitle { margin: 5px 0; }
+.compTitle a { color: #e2edff; text-decoration: none; }
+.compTitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.compTitle a:focus-visible { outline: 2px solid #94dbff; outline-offset: 3px; border-radius: 3px; }
+.priceOutlier { margin-top: 8px; color: #e6cca0; font-size: 11px; line-height: 1.5; }
+.priceDisclaimer { color: #95a9c7; font-size: 11px; line-height: 1.7; margin: 16px 2px 0; }
+@media(max-width:540px){
+ .evidenceComp { grid-template-columns: minmax(0,1fr); }
+ .evidenceComp.has-image { grid-template-columns: 64px minmax(0,1fr); }
+ .compImage { width: 64px; height: 76px; }
+ .evidenceComp.has-image > .compPrice { grid-column: 2; }
+ #valueCard .tier { padding: 12px 8px; }
+}
+
 </style>
 </head>
 <body>
@@ -286,10 +322,19 @@ textarea { min-height: 146px; }
 
   <div id="valueCard" class="card hidden">
     <div id="source" class="meta"></div>
-    <div class="pricebox"><span>Recommended listing price</span><div id="fair" class="price"></div><div id="range" class="range"></div></div>
-    <div class="tiers"><div class="tier"><span>⚡ Quick Sale</span><b id="quick"></b></div><div class="tier"><span>🏷 Fair Price</span><b id="mid"></b></div><div class="tier"><span>✨ Top Price</span><b id="top"></b></div></div>
+    <div class="pricebox"><span>Recommended listing price</span><div id="fair" class="price"></div><div id="range" class="range"></div>
+      <div id="priceContext" class="priceContext hidden">
+        <div class="priceFacts"><span id="priceCurrency" class="priceCurrency"></span><span id="priceMarket" class="priceMarket"></span></div>
+        <div id="priceCount" class="priceCount"></div>
+        <div id="priceConfidence" class="priceConfidence"></div>
+        <p id="confidenceReason" class="confidenceReason"></p>
+      </div>
+    </div>
+    <div class="tiers"><div class="tier"><span>Quick Sale</span><b id="quick"></b><small>For selling faster</small></div><div class="tier"><span>Fair Price</span><b id="mid"></b><small>Recommended balance</small></div><div class="tier"><span>Top Price</span><b id="top"></b><small>Worth trying if you can wait</small></div></div>
+    <div id="marketInsightCard" class="marketInsight hidden"><h3>Market insight</h3><p id="marketInsight"></p></div>
+    <p class="priceDisclaimer">SnapWorth estimates are based on available marketplace data and are not guaranteed sale prices.</p>
     <div id="stats" class="notice"></div>
-    <div style="margin-top:14px"><div class="sectionTitle">Best matches</div><div id="compList"></div></div>
+    <div style="margin-top:14px"><div class="sectionTitle">Best matches</div><div id="comparableSummary" class="sectionSub"></div><div id="compList"></div></div>
     <label class="small">Sales title</label><input id="salesTitle">
     <label class="small">Description</label><textarea id="salesText"></textarea>
     <button id="saveItem">＋ Save to My Stuff</button>
@@ -601,6 +646,8 @@ $('compsBtn').onclick=async()=>{
  const q=$('query').value.trim();
  if(!q)return;
 
+ const pricingMarket=$('market').value;
+ resetPriceContext();
  $('compsBtn').disabled=true;
  $('compsBtn').textContent='Searching marketplace…';
  const stopMarketProgress=beginVisualProgress('marketStatus',['Searching marketplace…','Comparing similar listings…','Filtering relevant results…','Calculating recommended price…'],'compsBtn');
@@ -676,8 +723,9 @@ return;
   $('saveItem').disabled=false;
   $('copy').disabled=false;
 
-  renderValue(d,q);
+  renderValue(d,q,pricingMarket);
   revealVisualResult('valueCard','price-reveal');
+  animateRecommendedPrice(d.valuation.fair,d.currency);
 
  }catch(e){
   $('valueCard').classList.remove('hidden');
@@ -705,13 +753,107 @@ return;
 function money(v,c){try{return new Intl.NumberFormat(undefined,{style:'currency',currency:c,maximumFractionDigits:0}).format(v)}catch{return Math.round(v)+' '+c}}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
-function renderValue(d,q){
+// Presentation-only interpretation of the server's already-filtered evidence.
+function priceEvidence(d){
+ const count=d.count, median=d.stats?.median, q1=d.stats?.q1, q3=d.stats?.q3;
+ const valid=Number.isInteger(count)&&count>=5&&Number.isFinite(median)&&median>0
+  &&Number.isFinite(q1)&&Number.isFinite(q3)&&q1>0&&q1<=median&&median<=q3;
+ if(!valid||d.demo) return {level:'limited',label:'Limited market data',reason:'Not enough verified price evidence to assess confidence.',insight:'Compare the exact version and condition with current marketplace listings before setting your price.'};
+ const spread=(q3-q1)/median;
+ const level=count>=20&&spread<=.25?'high':count>=8&&spread<=.6?'medium':'low';
+ const label={high:'High confidence',medium:'Medium confidence',low:'Low confidence'}[level];
+ const reason=`${count} usable listings; the middle half of asking prices spans ${Math.round(spread*100)}% of the median. Confidence reflects sample size and price spread, not a guaranteed sale.`;
+ const insight=spread<=.25
+  ? 'The middle half of comparable asking prices is tightly clustered. Check condition and exact version against your item.'
+  : spread>.6
+   ? 'Comparable asking prices vary considerably, so condition and exact version may strongly affect value.'
+   : 'Comparable asking prices show some variation. Use the expected range alongside condition and exact version when choosing a price.';
+ return {level,label,reason,insight:count<8?'Only a small number of usable listings is available. '+insight:insight};
+}
+function pricingMarketLabel(market){
+ return {EBAY_US:'eBay US',EBAY_GB:'eBay UK',EBAY_DE:'eBay Germany',NORWAY:'Norway'}[market]||'Marketplace';
+}
+function listingUrl(value){
+ try {const url=new URL(value);return ['https:','http:'].includes(url.protocol)?url.href:'';}catch{return '';}
+}
+function listingImage(value){
+ if(typeof value!=='string')return '';
+ // Honor the existing image CSP: this server currently returns no listing images.
+ if(/^data:image\/(png|jpeg|webp|gif);base64,/i.test(value))return value;
+ try {const url=new URL(value,location.origin);return url.origin===location.origin&&['https:','http:','blob:'].includes(url.protocol)?url.href:'';}catch{return '';}
+}
+function renderPriceContext(d,market){
+ const evidence=priceEvidence(d), label=pricingMarketLabel(market);
+ $('priceContext').classList.remove('hidden');
+ $('priceCurrency').textContent=d.currency||'';
+ $('priceMarket').textContent=d.demo?'Demo data':label;
+ $('priceCount').textContent=Number.isInteger(d.count)&&d.count>=0
+  ? `Based on ${d.count} usable comparable ${d.count===1?'listing':'listings'}${d.demo?' (demo)':''}`
+  : 'Comparable listing count unavailable';
+ $('priceConfidence').textContent=evidence.label;
+ $('priceConfidence').dataset.level=evidence.level;
+ $('confidenceReason').textContent=evidence.reason;
+ $('marketInsight').textContent=evidence.insight;
+ $('marketInsightCard').classList.remove('hidden');
+ $('range').textContent='Expected range: '+money(d.valuation.low,d.currency)+' – '+money(d.valuation.high,d.currency);
+ const items=Array.isArray(d.items)?d.items:[];
+ $('comparableSummary').textContent=`Showing ${Math.min(items.length,8)} of ${items.length} returned listings. Asking prices, not confirmed sale prices.`;
+ const q1=d.stats?.q1,q3=d.stats?.q3,iqr=q3-q1;
+ const hasFences=Number.isFinite(q1)&&Number.isFinite(q3)&&q1>0&&iqr>0;
+ $('compList').innerHTML=items.slice(0,8).map(x=>{
+  const href=listingUrl(x.url),img=listingImage(x.image?.imageUrl||x.image_url||x.image);
+  const unusual=hasFences&&Number.isFinite(x.price)
+   ? x.price<q1-1.5*iqr?'Unusually low asking price':x.price>q3+1.5*iqr?'Unusually high asking price':'' : '';
+  return `<div class="comp evidenceComp${img?' has-image':''}">
+   ${img?`<img class="compImage" src="${esc(img)}" alt="" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.remove('has-image')">`:''}
+   <div class="compBody"><div class="compMeta">${esc(label)} · Asking price</div>
+    <div class="compTitle">${href?`<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(x.title)}</a>`:esc(x.title)}</div>
+    <div class="compMeta">${esc(x.condition||'Condition not stated')}${x.seller?' · '+esc(x.seller):''}</div>
+    ${unusual?`<div class="priceOutlier">${unusual} · outside the usual spread; shown for context</div>`:''}</div>
+   <div class="compPrice">${money(x.price,d.currency)}</div></div>`;
+ }).join('');
+}
+let priceAnimationFrame=null, finishPriceAnimation=null;
+const priceMotionPreference=matchMedia('(prefers-reduced-motion: reduce)');
+function stopPriceAnimation(finish=false){
+ if(priceAnimationFrame!==null)cancelAnimationFrame(priceAnimationFrame);
+ priceAnimationFrame=null;
+ const complete=finishPriceAnimation;finishPriceAnimation=null;
+ if(finish&&complete)complete();
+}
+priceMotionPreference.addEventListener('change',e=>{if(e.matches)stopPriceAnimation(true)});
+function animateRecommendedPrice(value,currency){
+ stopPriceAnimation();
+ const finalText=money(value,currency);
+ $('fair').setAttribute('aria-label',finalText);
+ $('fair').textContent=finalText;
+ if(priceMotionPreference.matches||!Number.isFinite(value)||value<=0)return;
+ const started=performance.now();
+ finishPriceAnimation=()=>{$('fair').textContent=finalText};
+ $('fair').textContent=money(0,currency);
+ function frame(now){
+  const progress=Math.min(1,(now-started)/550);
+  $('fair').textContent=progress===1?finalText:money(value*(1-Math.pow(1-progress,3)),currency);
+  if(progress<1)priceAnimationFrame=requestAnimationFrame(frame);
+  else {priceAnimationFrame=null;finishPriceAnimation=null;}
+ }
+ priceAnimationFrame=requestAnimationFrame(frame);
+}
+function resetPriceContext(){
+ stopPriceAnimation(true);
+ $('fair').removeAttribute('aria-label');
+ $('priceContext').classList.add('hidden');
+ $('marketInsightCard').classList.add('hidden');
+ $('comparableSummary').textContent='';
+}
+
+function renderValue(d,q,market){
  lastValuation={name:q,value:d.valuation.fair,currency:d.currency,condition:$('condition').selectedOptions[0].text,low:d.valuation.low,high:d.valuation.high,category:identified?.category||'Other',image: $('preview').src || ''};
  $('source').textContent=d.demo?'Demo comparable data':'Live comparables via '+d.source;
  $('fair').textContent=money(d.valuation.fair,d.currency);$('range').textContent='Evidence range: '+money(d.valuation.low,d.currency)+' – '+money(d.valuation.high,d.currency);
  $('quick').textContent=money(d.valuation.quick,d.currency);$('mid').textContent=money(d.valuation.fair,d.currency);$('top').textContent=money(d.valuation.top,d.currency);
- $('stats').textContent=`Based on ${d.count} usable listings. Median ${money(d.stats.median,d.currency)}. Weak matches and statistical outliers are filtered before pricing.`;
- $('compList').innerHTML=d.items.slice(0,8).map(x=>`<div class="comp"><div><div class="compTitle">${esc(x.title)}</div><div class="compMeta">${esc(x.condition||'Condition not stated')} • ${esc(x.seller||'Marketplace seller')}</div></div><div class="compPrice">${money(x.price,d.currency)}</div></div>`).join('');
+ $('stats').textContent=Number.isFinite(d.stats?.median)?`Based on ${d.count} usable listings. Median ${money(d.stats.median,d.currency)}. Weak matches and statistical outliers are filtered before pricing.`:'Detailed market statistics are unavailable.';
+ renderPriceContext(d,market);
  const cond=$('condition').selectedOptions[0].text;
  $('salesTitle').value=`${q} – ${cond} condition`;
  $('salesText').value=`${q} for sale.\n\nCondition: ${cond}.\nRecommended listing price: ${money(d.valuation.fair,d.currency)}.\nComparable market range: ${money(d.valuation.low,d.currency)}–${money(d.valuation.high,d.currency)}.\n\nMessage me for more details or photos.`;

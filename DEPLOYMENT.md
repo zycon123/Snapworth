@@ -1,30 +1,50 @@
-# SnapWorth v1.0 Deployment Checklist
+# SnapWorth deployment
 
-## Required before public launch
-- Set NODE_ENV=production
-- Use a strong SESSION_SECRET
-- Add OPENAI_API_KEY
-- Add EBAY_CLIENT_ID and EBAY_CLIENT_SECRET
-- Deploy behind HTTPS
-- Use persistent disk/database storage
-- Configure backups
-- Add a privacy policy and terms
-- Add email verification + password reset before broad public signup
-- Move item photos from SQLite data URLs to object storage before scale
-- Add monitoring/logging and error reporting
-- Review rate limits based on real traffic
+This release is ready for staging validation, not an assertion that live hosting or policies are verified.
 
-## Render
-A `render.yaml` is included. It provisions:
-- Docker web service
-- persistent 1 GB disk
-- health check at `/health`
-- production environment
-- persistent SQLite + session files
+## Install and run
+Use Node 24 LTS and `npm ci`; commit package-lock.json. Run `npm test` and `npm run check`. Production uses `npm ci --omit=dev` and `npm start`. Do not omit optional packages: Sharp requires its platform-specific binaries. `/health` checks database readiness.
 
-## Docker
-Build:
-docker build -t snapworth .
+## Environment
+Copy `.env.example` for local development. Store real secrets in hosting configuration, never in Git.
 
-Run:
-docker run --env-file .env -p 3000:3000 snapworth
+- DATABASE_URL: PostgreSQL URL for accounts, items, sessions and usage counters. SQLite and local database files are not used.
+- SESSION_SECRET: random, at least 32 characters. Production refuses missing/placeholder secrets. Rotation signs users out.
+- DATABASE_CA_CERT: optional provider CA PEM (newlines or escaped \n). Production verifies certificates. URL SSL flags are stripped so they cannot override this policy. Confirm the database provider's CA configuration in staging; do not disable verification.
+- OPENAI_API_KEY and optional OPENAI_MODEL: preserve the existing provider setup. Missing credentials return unavailable, not a fabricated demo result.
+- EBAY_CLIENT_ID and EBAY_CLIENT_SECRET: tokens are cached and refreshed once after a 401.
+- PUBLIC_ORIGIN: exact HTTPS origin, without trailing slash. Production trusts one reverse proxy; validate that topology before deployment.
+- SITE_OPERATOR=Zycon Studios; SUPPORT_EMAIL=zyconstudios@protonmail.com.
+- PUBLIC_SIGNUP_ENABLED=false in production by default. Existing users can log in. Public signup requires true, valid operator/contact settings and POLICIES_REVIEWED=true, after the operator reviews the actual deployment and policies.
+
+Render supplies non-secret settings and a health check. Add DATABASE_URL, SESSION_SECRET and provider credentials in the dashboard. The blueprint does not create a database or backups. Docker uses Node 24 and the lockfile.
+
+## Migration and rollback
+Startup creates missing tables, makes item value nullable, adds users.auth_version (default zero), adds an owner/sort index and creates api_usage counters. Existing records/images are not rewritten or deleted. Legacy zero prices display as unknown; new unknown prices are NULL. Existing sessions default to auth version zero; changing a password revokes older sessions.
+
+Back up first. Test startup/ALTER/INDEX permissions on a staging copy and schedule downtime where necessary for large tables. A code rollback must preserve NULL-aware price display: the old UI displays NULL as zero. Do not restore NOT NULL while unknown values exist.
+
+## Limits
+AI/pricing require login. Per UTC day: 20 identification attempts and 100 price searches per user; shared caps 500/2000 respectively. Failed/rejected attempts may count. Atomic PostgreSQL counters survive restarts and multiple instances; old counters are pruned on startup. IP limits and four concurrent expensive operations per process provide additional protection. Configure provider-side spending limits separately.
+
+One JPEG/PNG/WebP upload is allowed: 8 MiB and 20 million pixels maximum. Stored data URLs have a smaller limit. Decoding, metadata stripping and resizing precede API use/storage. Inventory metadata is paginated (100/page), with owner-protected image requests. PostgreSQL image storage remains for compatibility; object storage is a later scaling option.
+
+## Before public launch
+1. Verify HTTPS cookies, proxy, verified database TLS and environment variables on staging.
+2. Test two real accounts for cross-user item/image access, saving known/unknown prices, login, password changes, logout and deletion.
+3. Run an authorized live identification/eBay check with test photos. Development used mocks only. Norwegian automatic pricing remains unavailable.
+4. Restore a backup and document backup/log retention. Review the privacy notice against actual provider settings. Its retention section still requires operational details.
+5. Confirm the support mailbox receives mail. Review terms, including the qualified liability clause. It is not a guarantee of legal enforceability.
+6. Public signup automatically requires email verification. Configure the selected provider API key, EMAIL_FROM (a verified sender address), and an exact HTTPS PUBLIC_ORIGIN; see Account email below. EMAIL_VERIFICATION_REQUIRED=true also enables verification while signup is closed. Test actual delivery, resend, expiry and password recovery before enabling public signup. Existing accounts must verify too; no legacy account is silently marked verified. Monitor errors and spend.
+
+## Account email
+For a zero-budget pilot without a custom domain, set EMAIL_PROVIDER=brevo, BREVO_API_KEY, and EMAIL_FROM=zyconstudios@protonmail.com after verifying that address in Brevo. The free plan currently includes 300 sends per day; the app caps Brevo attempts at 250 per UTC day to leave some headroom. Other sends from the same account also consume the provider quota. Brevo documents temporary sender rewriting for free-domain addresses, including transactional mail. Recipients may see a provider-domain sender; Reply-To remains the verified Proton address. This is a temporary option, not a custom domain or a guarantee of acceptance/delivery. Confirm account activation and real delivery before launch. Sources: https://help.brevo.com/hc/en-us/articles/208589409-About-Brevo-s-pricing-plans and https://help.brevo.com/hc/en-us/articles/14925263522578-Comply-with-Gmail-Yahoo-and-Microsoft-s-requirements-for-email-senders . API: https://developers.brevo.com/reference/send-transac-email .
+
+EMAIL_PROVIDER defaults to resend for existing deployments. With Brevo selected, RESEND_API_KEY is not used; unknown provider names fail configuration validation. Neither adapter creates a mailing list or subscribes account holders to marketing.
+
+The Resend adapter uses the Resend send-email endpoint (https://resend.com/docs/api-reference/emails/send-email); no mail is sent in automated tests. Email links use URL fragments, expire after 30 minutes, and require explicit confirmation in the browser. Only SHA-256 token hashes are stored. Completing a link atomically consumes it, increments auth_version and invalidates sibling links and existing sessions. Password changes also invalidate outstanding links through auth_version. Link rows cascade on account deletion; expired rows are pruned on startup. Sending is limited to one email per account per UTC minute and 500 globally per UTC day, plus IP limits. Requests return a generic result even on delivery failure; operators must monitor the sanitized delivery-failure log and provider delivery status.
+
+The migration adds users.email_verified (default false) and account_tokens. It preserves existing passwords and items. Rollback to code that omits verification would bypass the verification gate, so keep public signup closed during rollback. The app will refuse to start with verification enabled and missing mail configuration.
+
+## Test scope
+Tests use real Express/Multer/session middleware and Sharp, pg-mem SQL, and mocked external HTTP; frontend tests use JSDOM. CI also runs PostgreSQL 16 against an empty disposable database to check repeated legacy-schema migrations, preserved values, nullable prices, sessions shared between app instances, password revocation and concurrent quota updates. The integration test skips locally unless TEST_DATABASE_URL names an empty localhost database named snapworth_test. This does not verify production TLS or backup restoration. Full Smart Match v3 is not included: filtering is conservative and returns no estimate when product type/evidence is insufficient.

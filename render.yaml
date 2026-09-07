@@ -3,12 +3,21 @@ services:
     name: snapworth
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm ci --omit=dev
     startCommand: node server.js
     autoDeploy: true
+    healthCheckPath: /health
 
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: NODE_VERSION
+        value: 24
+      - key: SITE_OPERATOR
+        value: Zycon Studios
+      - key: SUPPORT_EMAIL
+        value: zyconstudios@protonmail.com
+      - key: PUBLIC_SIGNUP_ENABLED
+        value: "false"

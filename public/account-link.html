@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>SnapWorth account</title>
+<style>body{font:16px system-ui;background:#0b1220;color:#ecf3ff;margin:0;padding:24px}main{max-width:440px;margin:10vh auto}label,input,button{display:block;margin:16px 0}input,button{box-sizing:border-box;width:100%;padding:14px;font:inherit;border-radius:10px}button{background:#b5f3d1;border:0;color:#11221a;cursor:pointer}a{color:#b5f3d1}#status{line-height:1.6}</style></head>
+<body><main><h1 id="heading">SnapWorth account</h1><p id="intro"></p><form id="complete"><div id="passwordFields" hidden><label for="password">New password</label><input id="password" type="password" autocomplete="new-password" minlength="8"><label for="confirmPassword">Repeat new password</label><input id="confirmPassword" type="password" autocomplete="new-password" minlength="8"></div><button id="submit" type="submit">Confirm email</button></form><p id="status" role="status" aria-live="polite"></p><a href="/">Return to SnapWorth</a></main>
+<script>
+const params=new URLSearchParams(location.hash.slice(1));
+const token=params.get('token'),purpose=params.get('purpose');
+history.replaceState(null,'',location.pathname);
+const form=document.getElementById('complete'),status=document.getElementById('status'),button=document.getElementById('submit');
+if(!['verify','reset'].includes(purpose)||! /^[a-f0-9]{64}$/.test(token||'')){
+ form.hidden=true;status.textContent='This link is missing or invalid. Request a new email from Account in SnapWorth.';
+}else{
+ document.getElementById('heading').textContent=purpose==='reset'?'Choose a new password':'Confirm your email';
+ document.getElementById('intro').textContent='Links expire after 30 minutes. Complete this step to continue.';
+ document.getElementById('passwordFields').hidden=purpose!=='reset';
+ document.getElementById('password').required=purpose==='reset';document.getElementById('confirmPassword').required=purpose==='reset';
+ button.textContent=purpose==='reset'?'Save new password':'Confirm email';
+ form.onsubmit=async event=>{
+  event.preventDefault();if(button.disabled)return;
+  const password=document.getElementById('password').value;
+  if(purpose==='reset'&&password!==document.getElementById('confirmPassword').value){status.textContent='Passwords must match.';return;}
+  button.disabled=true;status.textContent='Working…';
+  try{
+   const response=await fetch('/api/auth/complete-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,purpose,...(purpose==='reset'?{password}:{})})});
+   const result=await response.json();if(!response.ok)throw new Error(result.error||'Please try again.');
+   form.hidden=true;document.getElementById('password').value='';document.getElementById('confirmPassword').value='';status.textContent=result.message;
+  }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+ };
+}
+</script></body></html>

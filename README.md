@@ -1,32 +1,9 @@
-# SnapWorth v1.0 — Deployment Ready Prototype
+# SnapWorth
 
-This release turns the prototype into something that can be deployed safely for early testing.
+SnapWorth by Zycon Studios identifies items, compares marketplace asking prices and stores a personal collection. It is a supporting tool, not a definitive answer; errors may occur and sale prices are not guaranteed.
 
-Added:
-- Dockerfile
-- Render deployment blueprint
-- `/health` endpoint
-- Helmet security headers
-- API rate limiting
-- tighter login/register rate limits
-- persistent SQLite-backed session store
-- production proxy/cookie handling
-- environment validation warning
-- deployment checklist
-- image-storage abstraction point for future S3/R2/Supabase migration
+Support: [zyconstudios@protonmail.com](mailto:zyconstudios@protonmail.com).
 
-Still included:
-- AI image identification
-- searchable detected items
-- marketplace comparable listings
-- valuation ranges
-- generated sales listings
-- accounts
-- My Stuff cloud inventory
-- saved item photos
-- scan history
-- item details and notes
-- installable PWA
+Use Node 24. Copy `.env.example` to `.env`, configure development PostgreSQL and a session secret, then run `npm ci` and `npm start`. Open http://localhost:3000. Identification and price searches require sign-in and provider credentials. Norwegian automatic pricing is unavailable; FINN/Facebook links remain available.
 
-Important:
-v1.0 is suitable for private/early beta deployment, not large-scale public production yet. Before broad launch, add email verification, password reset, production object storage for images, stronger observability, and a more scalable database/session strategy.
+`npm test` uses mocked external APIs and needs no API key. `npm run check` checks server syntax. See [DEPLOYMENT.md](DEPLOYMENT.md) for environment, migration and launch requirements.

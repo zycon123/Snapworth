@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#070b16">
+<meta name="author" content="Zycon Studios">
 <link rel="manifest" href="/manifest.webmanifest">
 <title>SnapWorth</title>
 <style>
@@ -297,6 +298,11 @@ textarea { min-height: 146px; }
 #detailFacts dd { margin:6px 0 0; color:#dceaff; font-size:13px; overflow-wrap:anywhere; }
 @media(max-width:540px){.collectionControls{grid-template-columns:1fr}.collectionItem .thumb{width:88px;height:112px}.collectionItem,.collectionItem:first-child{grid-template-columns:88px minmax(0,1fr);gap:8px 12px}.collectionItem .compPrice{font-size:16px}}
 
+.appFooter{max-width:760px;margin:0 auto 24px;padding:16px 24px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.7;text-align:center}
+.appFooter p{margin:0}
+.appFooter a{color:inherit;text-underline-offset:3px;overflow-wrap:anywhere}
+.appFooter a:hover{color:var(--text)}
+.appFooter a:focus-visible{outline:2px solid var(--a);outline-offset:4px;border-radius:2px}
 </style>
 </head>
 <body>
@@ -448,6 +454,11 @@ textarea { min-height: 146px; }
   </div>
 </section>
 </div>
+
+<footer class="appFooter">
+  <p>SnapWorth by Zycon Studios</p>
+  <p>Support: <a href="mailto:zyconstudios@protonmail.com">zyconstudios@protonmail.com</a></p>
+</footer>
 
 <nav class="bottomnav">
 <button class="navbtn active" data-page="scanPage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="4"/></svg><span>Scan</span></button>

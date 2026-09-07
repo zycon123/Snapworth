@@ -299,7 +299,7 @@ textarea { min-height: 146px; }
 @media(max-width:540px){.collectionControls{grid-template-columns:1fr}.collectionItem .thumb{width:88px;height:112px}.collectionItem,.collectionItem:first-child{grid-template-columns:88px minmax(0,1fr);gap:8px 12px}.collectionItem .compPrice{font-size:16px}}
 
 .appFooter{max-width:760px;margin:0 auto 24px;padding:16px 24px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.7;text-align:center}
-.appFooter p{margin:0}
+.appFooter p{margin:4px 0}
 .appFooter a{color:inherit;text-underline-offset:3px;overflow-wrap:anywhere}
 .appFooter a:hover{color:var(--text)}
 .appFooter a:focus-visible{outline:2px solid var(--a);outline-offset:4px;border-radius:2px}
@@ -326,18 +326,18 @@ textarea { min-height: 146px; }
 <section id="scanPage" class="page active">
   <div class="hero"><h1>Snap it.<br>Know its worth.</h1><p>From electronics to tools, collectibles, furniture and more.</p></div>
   <div class="card">
-    <label class="upload" for="photo"><div class="cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="4"/></svg></div><strong>Take or upload a photo</strong><span>Try to include logos, labels or model numbers.</span><span class="scanPreview" id="scanPreview"><img id="preview"></span></label>
-    <input id="photo" type="file" accept="image/*" capture="environment">
+    <label class="upload" for="photo"><div class="cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="4"/></svg></div><strong>Take or upload a photo</strong><span>Try to include logos, labels or model numbers.</span><span class="scanPreview" id="scanPreview"><img id="preview" alt="Selected item photo"></span></label>
+    <input id="photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
     <button id="identify" disabled>✨ Identify item</button><div id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
 
   <div id="identifyCard" class="card hidden">
     <div class="row"><div><div id="name" class="itemName"></div><div id="meta" class="meta"></div></div><div id="conf" class="confidence"></div></div>
     <div class="grid">
-      <div class="full"><label class="small">Search query</label><input id="query"></div>
-      <div><label class="small">Condition</label><select id="condition"><option value="1">Like new</option><option value=".94" selected>Very good</option><option value=".86">Good</option><option value=".74">Fair</option><option value=".58">Poor</option></select></div>
+      <div class="full"><label class="small" for="query">Search query</label><input id="query"></div>
+      <div><label class="small" for="condition">Condition</label><select id="condition"><option value="1">Like new</option><option value=".94" selected>Very good</option><option value=".86">Good</option><option value=".74">Fair</option><option value=".58">Poor</option></select></div>
       <div>
-  <label class="small">Market</label>
+  <label class="small" for="market">Market</label>
   <select id="market">
     <option value="NORWAY" selected>🇳🇴 Norway — NOK</option>
     <option value="EBAY_US">🇺🇸 eBay US — USD</option>
@@ -378,8 +378,8 @@ textarea { min-height: 146px; }
     <p class="priceDisclaimer">SnapWorth estimates are based on available marketplace data and are not guaranteed sale prices.</p>
     <div id="stats" class="notice"></div>
     <div style="margin-top:14px"><div class="sectionTitle">Best matches</div><div id="comparableSummary" class="sectionSub"></div><div id="compList"></div></div>
-    <label class="small">Sales title</label><input id="salesTitle">
-    <label class="small">Description</label><textarea id="salesText"></textarea>
+    <label class="small" for="salesTitle">Sales title</label><input id="salesTitle">
+    <label class="small" for="salesText">Description</label><textarea id="salesText"></textarea>
     <button id="saveItem">＋ Save to My Stuff</button>
     <button id="copy" class="secondary">Copy sales listing</button>
   </div>
@@ -431,11 +431,11 @@ textarea { min-height: 146px; }
       <div id="detailRange" class="range"></div>
     </div>
     <dl id="detailFacts"></dl>
-    <label class="small">Condition</label>
+    <label class="small" for="detailCondition">Condition</label>
     <select id="detailCondition">
       <option>Like new</option><option>Very good</option><option>Good</option><option>Fair</option><option>Poor</option>
     </select>
-    <label class="small">Notes</label>
+    <label class="small" for="detailNotes">Notes</label>
     <textarea id="detailNotes" placeholder="Accessories, defects, serial number, where it is stored, etc."></textarea>
     <button id="saveDetail">Save changes</button>
     <button id="searchDetail" class="secondary">🔎 Search this item</button>
@@ -447,18 +447,16 @@ textarea { min-height: 146px; }
   <div class="hero"><h1>Account</h1><p>Sign in to sync My Stuff across sessions.</p></div>
   <div class="card">
     <div id="authLoggedOut">
-      <div class="grid"><div><label class="small">Email</label><input id="authEmail" type="email" placeholder="you@example.com"></div><div><label class="small">Password</label><input id="authPassword" type="password" placeholder="8+ characters"></div></div>
+      <div class="grid"><div><label class="small" for="authEmail">Email</label><input id="authEmail" type="email" placeholder="you@example.com"></div><div><label class="small" for="authPassword">Password</label><input id="authPassword" type="password" placeholder="8+ characters"></div></div>
+      <p class="meta">Before creating an account, read our <a href="/terms.html">Terms</a> and <a href="/privacy.html">Privacy notice</a>.</p>
       <button id="registerBtn">Create account</button><button id="loginBtn" class="secondary">Sign in</button><div id="authStatus" class="status"></div>
     </div>
-    <div id="authLoggedIn" class="hidden"><div class="sectionTitle">Signed in</div><div id="accountEmail" class="meta"></div><button id="logoutBtn" class="secondary">Sign out</button></div>
+    <div id="authLoggedIn" class="hidden"><div class="sectionTitle">Signed in</div><div id="accountEmail" class="meta"></div><label class="small" for="currentPassword">Current password</label><input id="currentPassword" type="password" autocomplete="current-password">
+<label class="small" for="newPassword">New password</label><input id="newPassword" type="password" autocomplete="new-password">
+<button id="changePassword" class="secondary">Change password</button><button id="deleteAccount" class="secondary">Delete account and saved items</button><button id="logoutBtn" class="secondary">Sign out</button></div>
   </div>
 </section>
 </div>
-
-<footer class="appFooter">
-  <p>SnapWorth by Zycon Studios</p>
-  <p>Support: <a href="mailto:zyconstudios@protonmail.com">zyconstudios@protonmail.com</a></p>
-</footer>
 
 <nav class="bottomnav">
 <button class="navbtn active" data-page="scanPage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="4"/></svg><span>Scan</span></button>
@@ -467,6 +465,13 @@ textarea { min-height: 146px; }
 <button class="navbtn" data-page="accountPage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>Account</span></button>
 </nav>
 
+<div id="actionStatus" role="status" aria-live="polite" style="padding:12px 24px;color:#d4e4ee"></div>
+<footer class="appFooter">
+ <p>SnapWorth by Zycon Studios</p>
+ <p>Support: <a href="mailto:zyconstudios@protonmail.com">zyconstudios@protonmail.com</a></p>
+ <p><a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></p>
+ <p>SnapWorth is a guide, not a definitive answer. Errors may occur. Verify item details and prices before buying or selling.</p>
+</footer>
 <script>
 const $=id=>document.getElementById(id);
 // Cosmetic stages only: they do not represent backend progress or gate requests.
@@ -506,11 +511,14 @@ document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{
  window.scrollTo({top:0,behavior:'smooth'});
 });
 
-if(!localStorage.getItem("snapworth_onboarded")) $('onboarding').classList.remove('hidden');
-$('startOnboarding').onclick=()=>{localStorage.setItem("snapworth_onboarded","1");$('onboarding').classList.add('hidden')};
+if(!safeStorageGet("snapworth_onboarded")) $('onboarding').classList.remove('hidden');
+$('startOnboarding').onclick=()=>{safeStorageSet("snapworth_onboarded","1");$('onboarding').classList.add('hidden')};
 
 $('photo').onchange=()=>{
  file=$('photo').files[0];if(!file)return;
+ if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>8*1024*1024){file=null;$('photo').value='';$('identify').disabled=true;$('status').textContent='Choose a JPEG, PNG or WebP image under 8 MB.';return}
+ if($('preview').src.startsWith('blob:'))URL.revokeObjectURL($('preview').src);
+ lastValuation=null;$('saveItem').disabled=true;
  $('preview').src=URL.createObjectURL(file);$('preview').style.display='block';$('identify').disabled=false;$('status').textContent='Photo ready.';
 };
 async function imageToUploadBlob(file,maxW=1280,quality=.82){
@@ -520,7 +528,8 @@ async function imageToUploadBlob(file,maxW=1280,quality=.82){
 
   img.onload=()=>{
    try{
-    const scale=Math.min(1,maxW/img.width);
+    if(img.width*img.height>20000000)throw new Error('Use an image under 20 megapixels.');
+    const scale=Math.min(1,maxW/img.width,maxW/img.height);
     const w=Math.round(img.width*scale);
     const h=Math.round(img.height*scale);
 
@@ -552,7 +561,7 @@ async function imageToUploadBlob(file,maxW=1280,quality=.82){
 }
 $('identify').onclick=async()=>{
  if(!file)return;
-
+ if(!cloudUser){$('authStatus').textContent='Sign in to identify items.';showPage('accountPage');return}
  $('identify').disabled=true;
  $('status').textContent='Analyzing image…';
  const stopScanProgress=beginVisualProgress('status',['Analyzing image…','Detecting item…','Identifying brand and model…','Preparing market search…'],'scanPreview');
@@ -566,6 +575,7 @@ $('identify').onclick=async()=>{
 
   const r=await fetch('/api/identify',{
    method:'POST',
+   signal:AbortSignal.timeout(30000),
    body:fd
   });
 
@@ -575,7 +585,7 @@ $('identify').onclick=async()=>{
   try{
    d=JSON.parse(raw);
   }catch{
-   throw new Error(raw || 'Server returned an invalid response');
+   throw new Error('The server could not complete this request. Please try again.');
   }
 
   if(!r.ok){
@@ -674,7 +684,7 @@ $('shoppingSearchBtn').onclick=()=>openSearch('https://www.google.com/search?tbm
 $('imagesSearchBtn').onclick=()=>openSearch('https://www.google.com/search?tbm=isch&q=');
 document.getElementById("finnSearchBtn")?.addEventListener("click",()=>{
   const q=encodeURIComponent(
-  (identified?.search_query_no || document.getElementById("query").value).trim()
+  (document.getElementById("query").value || identified?.search_query_no || '').trim()
 );
   if(!q)return;
   window.open(`https://www.finn.no/recommerce/forsale/search?q=${q}`,"_blank");
@@ -682,8 +692,7 @@ document.getElementById("finnSearchBtn")?.addEventListener("click",()=>{
 
 document.getElementById("facebookSearchBtn")?.addEventListener("click",async()=>{
   const searchText=(
-    identified?.search_query_no ||
-    document.getElementById("query").value
+    document.getElementById("query").value || identified?.search_query_no || ''
   ).trim();
 
   if(!searchText)return;
@@ -722,7 +731,7 @@ $('compsBtn').onclick=async()=>{
    q,
    market:$('market').value,
    condition:$('condition').value
-  }));
+  }),{signal:AbortSignal.timeout(30000)});
 
   const d=await r.json();
 
@@ -761,7 +770,7 @@ Ta kontakt ved spørsmål eller ønske om flere bilder.`;
  if(isNorway){
   lastValuation={
     name:q,
-    value:0,
+    value:null,
     currency:'NOK',
     condition:$('condition').selectedOptions[0].text,
     low:null,
@@ -814,7 +823,7 @@ return;
  }
 };
 
-function money(v,c){try{return new Intl.NumberFormat(undefined,{style:'currency',currency:c,maximumFractionDigits:0}).format(v)}catch{return Math.round(v)+' '+c}}
+function money(v,c){if(v===null||v===undefined||!Number.isFinite(Number(v))||Number(v)<=0)return 'Value unavailable';try{return new Intl.NumberFormat(undefined,{style:'currency',currency:c,maximumFractionDigits:0}).format(v)}catch{return Math.round(v)+' '+c}}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 // Presentation-only interpretation of the server's already-filtered evidence.
@@ -924,19 +933,40 @@ function renderValue(d,q,market){
  $('valueCard').classList.remove('hidden');$('valueCard').scrollIntoView({behavior:'smooth'});
  saveHistory(lastValuation);
 }
-function saveHistory(x){const a=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');a.unshift({...x,at:new Date().toISOString()});localStorage.setItem(HISTORY_KEY,JSON.stringify(a.slice(0,25)))}
-function renderHistory(){const a=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');$('historyList').innerHTML=a.length?a.map(x=>`<div class="inventoryCard"><img class="thumb" src="${x.image||''}" onerror="this.style.visibility='hidden'"><div><div class="compTitle">${esc(x.name)}</div><div class="compMeta">${esc(x.category||'Other')} • ${new Date(x.at).toLocaleString()}</div></div><div class="compPrice">${money(x.value,x.currency)}</div></div>`).join(''):'<div class="empty">No scans yet.</div>'}
+function safeStorageGet(key){try{return localStorage.getItem(key)}catch{return null}}
+function safeStorageSet(key,value){try{localStorage.setItem(key,value);return true}catch{return false}}
+function readHistory(){try{const value=JSON.parse(safeStorageGet(HISTORY_KEY)||'[]');return Array.isArray(value)?value.filter(x=>x&&typeof x==='object').slice(0,25):[]}catch{return []}}
+function saveHistory(x){const a=readHistory();a.unshift({...x,image:'',at:new Date().toISOString()});safeStorageSet(HISTORY_KEY,JSON.stringify(a.slice(0,25)))}
+function renderHistory(){const a=readHistory();$('historyList').innerHTML=a.length?a.map(x=>`<div class="inventoryCard"><span class="thumb imagePlaceholder" aria-hidden="true">◇</span><div><div class="compTitle">${esc(x.name)}</div><div class="compMeta">${esc(x.category||'Other')} • ${esc(new Date(x.at).toLocaleString())}</div></div><div class="compPrice">${esc(money(x.value,x.currency))}</div></div>`).join(''):'<div class="empty">No scans yet. History is stored on this device and cleared when you sign out.</div>'}
 
-async function api(url,opt={}){const r=await fetch(url,{headers:{"Content-Type":"application/json",...(opt.headers||{})},...opt});const d=await r.json();if(!r.ok)throw new Error(d.error||"Request failed");return d}
-async function refreshAuth(){
- const d=await api("/api/auth/me");cloudUser=d.user;
- $('authLoggedOut').classList.toggle('hidden',!!cloudUser);$('authLoggedIn').classList.toggle('hidden',!cloudUser);
- if(cloudUser){$('accountEmail').textContent=cloudUser.email;await loadCloudItems()}else{cloudItems=[];renderInventory()}
+async function api(url,opt={}){
+ const r=await fetch(url,{...opt,headers:{"Content-Type":"application/json",...(opt.headers||{})},signal:AbortSignal.timeout(30000)});
+ let d;try{d=await r.json()}catch{throw new Error('The server could not complete this request. Please try again.')}
+ if(!r.ok)throw new Error(d.error||'Request failed');return d;
 }
-async function loadCloudItems(){const d=await api("/api/items");cloudItems=d.items||[];renderInventory()}
+let collectionGeneration=0;
+async function refreshAuth(){
+ const previous=cloudUser?.id;
+ const d=await api('/api/auth/me');cloudUser=d.user;
+ if(previous!==cloudUser?.id){collectionGeneration++;cloudItems=[];activeItemId=null;lastValuation=null;$('detailNotes').value='';$('detailImage').removeAttribute('src');$('detailName').textContent='';}
+ $('currentPassword').value='';$('newPassword').value='';
+ $('authLoggedOut').classList.toggle('hidden',!!cloudUser);$('authLoggedIn').classList.toggle('hidden',!cloudUser);
+ if(cloudUser){$('accountEmail').textContent=cloudUser.email;await loadCloudItems()}else{cloudItems=[];$('accountEmail').textContent='';renderInventory()}
+}
+async function loadCloudItems(){
+ const generation=++collectionGeneration,items=[];let before=null;
+ do{
+  const d=await api('/api/items'+(before?'?before='+encodeURIComponent(before):''));
+  if(generation!==collectionGeneration)return;
+  items.push(...(d.items||[]));
+  if(d.nextCursor===before&&before)throw new Error('Could not load the next collection page.');
+  before=d.nextCursor;
+ }while(before);
+ cloudItems=items;renderInventory();
+}
 function inventoryCategory(x){return x.category||'Other'}
 function inventoryCurrency(x){return x.currency||'Unknown currency'}
-function inventoryAmount(x){return x.value!==null&&x.value!==''&&Number.isFinite(Number(x.value))?Number(x.value):null}
+function inventoryAmount(x){return x.value!==null&&x.value!==''&&Number.isFinite(Number(x.value))&&Number(x.value)>0?Number(x.value):null}
 function inventoryMoney(value,currency){return currency+' '+new Intl.NumberFormat(undefined,{maximumFractionDigits:0}).format(value)}
 function inventoryDate(value){const date=new Date(value);return value&&!Number.isNaN(date.getTime())?date.toLocaleDateString():''}
 function inventoryGroups(items){
@@ -1004,7 +1034,7 @@ function renderInventory(){
   const currency=inventoryCurrency(x),value=inventoryAmount(x),date=inventoryDate(x.saved_at);
   const heading=(sort==='high'||sort==='low')&&lastCurrency!==currency?`<div class="currencyHeading">${esc(currency)}</div>`:'';lastCurrency=currency;
   return `${heading}<button class="inventoryCard collectionItem" data-item-id="${esc(x.id)}">
-   ${x.image_data?`<img class="thumb" src="${esc(x.image_data)}" alt="" loading="lazy">`:'<span class="thumb imagePlaceholder" aria-hidden="true">◇</span>'}
+   ${x.has_image?`<img class="thumb" src="/api/items/${encodeURIComponent(x.id)}/image" alt="" loading="lazy">`:'<span class="thumb imagePlaceholder" aria-hidden="true">◇</span>'}
    <span class="collectionItemInfo"><span class="compTitle">${esc(x.name)}</span>${x.brand||x.model?`<span class="compMeta">${esc([x.brand,x.model].filter(Boolean).join(' · '))}</span>`:''}<span class="compMeta">${esc(inventoryCategory(x))}${date?' · '+esc(date):''}</span></span>
    <span class="collectionItemValue"><span class="compPrice">${value===null?'Value unavailable':esc(inventoryMoney(value,currency))}</span><span class="compMeta">Saved estimate · View ›</span></span>
   </button>`;
@@ -1023,13 +1053,13 @@ async function imageToDataUrl(file,maxW=900,quality=.78){
  return new Promise((resolve,reject)=>{
   const img=new Image(), url=URL.createObjectURL(file);
   img.onload=()=>{
-   const scale=Math.min(1,maxW/img.width), w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+   const scale=Math.min(1,maxW/img.width,maxW/img.height), w=Math.round(img.width*scale), h=Math.round(img.height*scale);
    const c=document.createElement('canvas');c.width=w;c.height=h;
    c.getContext('2d').drawImage(img,0,0,w,h);
    URL.revokeObjectURL(url);
    resolve(c.toDataURL('image/jpeg',quality));
   };
-  img.onerror=reject;img.src=url;
+  img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Could not read image.'))};img.src=url;
  });
 }
 let activeItemId=null;
@@ -1042,40 +1072,55 @@ window.openItem=async id=>{
  try{
   const d=await api('/api/items/'+id);const x=d.item;activeItemId=x.id;renderCollectionDetail(x);
   $('detailName').textContent=x.name;$('detailMeta').textContent=[x.category,x.condition,new Date(x.saved_at).toLocaleDateString()].filter(Boolean).join(' • ');
-  $('detailPrice').textContent=money(Number(x.value),x.currency);$('detailFair').textContent=money(Number(x.value),x.currency);
+  $('detailPrice').textContent=money(inventoryAmount(x),x.currency);$('detailFair').textContent=money(inventoryAmount(x),x.currency);
   $('detailRange').textContent=(x.low&&x.high)?`Estimated range: ${money(Number(x.low),x.currency)} – ${money(Number(x.high),x.currency)}`:'No stored range';
   $('detailNotes').value=x.notes||'';$('detailCondition').value=x.condition||'Very good';
-  if(x.image_data){$('detailImage').src=x.image_data;$('detailImage').classList.remove('hidden')}else{$('detailImage').classList.add('hidden')}
+  if(x.image_data){$('detailImage').src='/api/items/'+encodeURIComponent(x.id)+'/image';$('detailImage').classList.remove('hidden')}else{$('detailImage').classList.add('hidden')}
   showPage('detailPage');
  }catch(e){alert(e.message)}
 };
 $('backToStuff').onclick=()=>showPage('stuffPage');
-$('saveDetail').onclick=async()=>{
+function action(buttonId,fn){return async()=>{
+ const button=$(buttonId);if(button.disabled)return;button.disabled=true;
+ try{await fn()}catch(e){$('actionStatus').textContent=e.name==='TimeoutError'?'The request timed out. Reload your collection before trying again.':e.message}
+ finally{button.disabled=false}
+}}
+$('saveDetail').onclick=action('saveDetail',async()=>{
  if(!activeItemId)return;
  await api('/api/items/'+activeItemId,{method:'PATCH',body:JSON.stringify({notes:$('detailNotes').value,condition:$('detailCondition').value})});
- await loadCloudItems();$('saveDetail').textContent='✓ Saved';setTimeout(()=>$('saveDetail').textContent='Save changes',1100);
-};
-$('deleteDetail').onclick=async()=>{
+ await loadCloudItems();$('actionStatus').textContent='Changes saved.';
+});
+$('deleteDetail').onclick=action('deleteDetail',async()=>{
  if(!activeItemId)return;
  if(!confirm('Delete “'+$('detailName').textContent+'” from My Stuff? This cannot be undone.'))return;
  await api('/api/items/'+activeItemId,{method:'DELETE'});activeItemId=null;await loadCloudItems();showPage('stuffPage');
-};
+});
 $('searchDetail').onclick=()=>{
  const q=$('detailName').textContent.trim();if(q)window.open('https://www.google.com/search?q='+encodeURIComponent(q),'_blank','noopener,noreferrer');
 };
 
-$('saveItem').onclick=async()=>{
- if(!lastValuation)return alert('Run a valuation first.');
- if(!cloudUser)return alert('Create an account or sign in first.');
+$('saveItem').onclick=action('saveItem',async()=>{
+ if(!lastValuation)throw new Error('Run a valuation first.');
+ if(!cloudUser)throw new Error('Sign in first.');
  const imageData=await imageToDataUrl(file);
- await api('/api/items',{method:'POST',body:JSON.stringify({...lastValuation,image:imageData,notes:''})});await loadCloudItems();
- $('saveItem').textContent='✓ Saved to My Stuff';setTimeout(()=>$('saveItem').textContent='＋ Save to My Stuff',1300);
-};
+ await api('/api/items',{method:'POST',body:JSON.stringify({...lastValuation,image:imageData,notes:''})});
+ await loadCloudItems();$('actionStatus').textContent='Saved to My Stuff.';
+});
 $('copy').onclick=async()=>{await navigator.clipboard.writeText($('salesTitle').value+'\n\n'+$('salesText').value);$('copy').textContent='✓ Copied';setTimeout(()=>$('copy').textContent='Copy sales listing',1200)}
 $('registerBtn').onclick=async()=>{try{await api('/api/auth/register',{method:'POST',body:JSON.stringify({email:$('authEmail').value,password:$('authPassword').value})});$('authStatus').textContent='Account created.';await refreshAuth()}catch(e){$('authStatus').textContent=e.message}}
 $('loginBtn').onclick=async()=>{try{await api('/api/auth/login',{method:'POST',body:JSON.stringify({email:$('authEmail').value,password:$('authPassword').value})});$('authStatus').textContent='';await refreshAuth()}catch(e){$('authStatus').textContent=e.message}}
-$('logoutBtn').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});await refreshAuth()}
-refreshAuth();renderHistory();
+$('changePassword').onclick=action('changePassword',async()=>{
+ await api('/api/auth/password',{method:'POST',body:JSON.stringify({password:$('currentPassword').value,newPassword:$('newPassword').value})});
+ $('currentPassword').value='';$('newPassword').value='';$('actionStatus').textContent='Password changed. Other sessions have been signed out.';
+});
+$('deleteAccount').onclick=action('deleteAccount',async()=>{
+ if(!confirm('Permanently delete your account and all saved items? This cannot be undone.'))return;
+ await api('/api/auth/account',{method:'DELETE',body:JSON.stringify({password:$('currentPassword').value})});
+ $('currentPassword').value='';$('newPassword').value='';safeStorageSet(HISTORY_KEY,'[]');collectionGeneration++;lastValuation=null;activeItemId=null;
+ await refreshAuth();renderHistory();showPage('accountPage');$('actionStatus').textContent='Account and saved items deleted.';
+});
+$('logoutBtn').onclick=action('logoutBtn',async()=>{await api('/api/auth/logout',{method:'POST'});collectionGeneration++;safeStorageSet(HISTORY_KEY,'[]');lastValuation=null;activeItemId=null;$('detailNotes').value='';$('detailImage').removeAttribute('src');renderHistory();await refreshAuth();showPage('accountPage')});
+refreshAuth().catch(()=>{$('authStatus').textContent='Could not connect. Please reload to try again.'});renderHistory();
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}
 </script>

@@ -1,21 +1,5 @@
-# Contributing to SnapWorth
+# Contributing
 
-## Local development
+Use Node 24 and `npm ci`. Copy `.env.example` to `.env` and supply development PostgreSQL and a session secret for manual use. Tests use pg-mem and mocked providers; no API key is needed.
 
-1. Copy `.env.example` to `.env`.
-2. Set a development `SESSION_SECRET`.
-3. Run `npm install`.
-4. Run `npm run dev`.
-5. Open `http://localhost:3000`.
-
-The app can run without OpenAI/eBay credentials using its demo fallbacks.
-
-## Before committing
-
-Run:
-
-```bash
-node --check server.js
-```
-
-Do not commit `.env`, SQLite databases, session databases, API keys, or user data.
+Run `npm test` and `npm run check`. Preserve owner-scoped SQL, verified TLS, safe errors, upload limits and distinct currencies. Commit package-lock.json for dependency changes. Never commit secrets, user photos or database dumps.

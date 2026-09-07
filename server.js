@@ -8,11 +8,18 @@ import connectPgSimple from "connect-pg-simple";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
-dotenv.config();
-const { Pool } = pg;
+import { fileURLToPath } from 'node:url';
+import { validateEnvironment, validatePublicSignup, databaseOptions, PublicError, text, itemInput, storedImage, normalizeImage, identification, fetchJson } from './security.js';
+import { comparableItems, robustValuation } from './pricing.js';
+import { identificationPrompt } from './identification-prompt.js';
 
+export function createApp({env=process.env, database, sessionStore, fetcher=globalThis.fetch, upstreamTimeout=20000, aiDailyLimit=20, searchDailyLimit=100}={}) {
+validateEnvironment(env);
+validatePublicSignup(env);
+const pool=database || new pg.Pool(databaseOptions(env));
+pool.on?.('error',()=>console.error('Database connection unavailable'));
 const app=express();
-if (process.env.NODE_ENV==="production") app.set("trust proxy",1);
+if (env.NODE_ENV==="production") app.set("trust proxy",1);
 
 app.use(helmet({
   contentSecurityPolicy:{
@@ -27,41 +34,68 @@ app.use(helmet({
    }
 }));
 
-app.use(express.json({limit:"1.5mb"}));
- 
 
-if(!process.env.DATABASE_URL){
-  throw new Error("DATABASE_URL is required");
-}
 
-const pool=new Pool({
-  connectionString:process.env.DATABASE_URL,
-  ssl:process.env.NODE_ENV==="production"
-    ? {rejectUnauthorized:false}
-    : false
-});
 
 const PgSession=connectPgSimple(session);
 
 app.use(session({
-  store:new PgSession({
+  store:sessionStore || new PgSession({
     pool,
     createTableIfMissing:true
   }),
-  secret:process.env.SESSION_SECRET || "development-only-change-me",
+  secret:env.SESSION_SECRET || "development-only-change-me",
   resave:false,
   saveUninitialized:false,
   cookie:{
     httpOnly:true,
     sameSite:"lax",
-    secure:process.env.NODE_ENV==="production",
+    secure:env.NODE_ENV==="production",
     maxAge:1000*60*60*24*30
  }
 }));
 
-const authLimiter=rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:"draft-7",legacyHeaders:false});
-const apiLimiter=rateLimit({windowMs:60*1000,limit:120,standardHeaders:"draft-7",legacyHeaders:false});
-app.use("/api",apiLimiter);
+const authLimiter=rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:"draft-7",legacyHeaders:false,message:{error:'Too many sign-in attempts. Try again in 15 minutes.'}});
+const apiLimiter=rateLimit({windowMs:60*1000,limit:120,standardHeaders:"draft-7",legacyHeaders:false,message:{error:'Too many requests. Please wait a minute.'}});
+app.use('/api', (req,res,next)=>{res.set('Cache-Control','no-store');next()});
+app.use('/api', apiLimiter);
+app.use('/api', (req,res,next)=>{
+  if (!['GET','HEAD','OPTIONS'].includes(req.method)) {
+    const origin=req.get('origin');
+    const expected=env.PUBLIC_ORIGIN || req.protocol+'://'+req.get('host');
+    if (req.get('sec-fetch-site')==='cross-site' || (origin && origin!==expected)) return res.status(403).json({error:'Cross-site request rejected.'});
+  }
+  next();
+});
+app.use(express.json({limit:'1.5mb'}));
+const identifyIpLimiter=rateLimit({windowMs:60000,limit:10,standardHeaders:'draft-7',legacyHeaders:false,message:{error:'Too many scans. Please wait a minute.'}});
+function budget(kind,limit,globalLimit){return async(req,res,next)=>{
+  const windowKey=new Date().toISOString().slice(0,10);
+  for(const [key,max] of [[kind+':user:'+req.session.userId,limit],[kind+':global',globalLimit]]){
+    const result=await pool.query(`INSERT INTO api_usage(key,window_key,count) VALUES($1,$2,1)
+      ON CONFLICT(key,window_key) DO UPDATE SET count=LEAST(api_usage.count+1,$3) RETURNING count`,[key,windowKey,max+1]);
+    if(!result.rows.length || Number(result.rows[0].count)>max)return res.status(429).json({error:'Daily service allowance reached. Please try again tomorrow.'});
+  }
+  next();
+}}
+let active=0;
+function capacity(req,res,next){
+  if(active>=4)return res.status(503).json({error:'The service is busy. Please try again shortly.'});
+  active++;let released=false;
+  const release=()=>{if(!released){released=true;active--}};
+  req.releaseCapacity=release;
+  res.once('finish',release);res.once('close',()=>{if(!req.processing)release()});next();
+}
+const saveLimiter=rateLimit({windowMs:60000,limit:20,standardHeaders:'draft-7',legacyHeaders:false,message:{error:'Too many changes. Please wait a minute.'}});
+async function signIn(req,userId){
+  await new Promise((resolve,reject)=>req.session.regenerate(e=>e?reject(e):resolve()));
+  const user=await pool.query('SELECT auth_version FROM users WHERE id=$1',[userId]);
+  req.session.userId=String(userId);
+  req.session.authVersion=user.rows[0].auth_version;
+  await new Promise((resolve,reject)=>req.session.save(e=>e?reject(e):resolve()));
+}
+const cookieOptions={path:'/',httpOnly:true,sameSite:'lax',secure:env.NODE_ENV==='production'};
+
 
 async function initDatabase(){
   await pool.query(`
@@ -69,6 +103,7 @@ async function initDatabase(){
       id BIGSERIAL PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
+      auth_version INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -76,7 +111,7 @@ async function initDatabase(){
       id BIGSERIAL PRIMARY KEY,
       user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
-      value DOUBLE PRECISION NOT NULL,
+      value DOUBLE PRECISION,
       currency TEXT NOT NULL,
       condition TEXT,
       low DOUBLE PRECISION,
@@ -86,33 +121,37 @@ async function initDatabase(){
       notes TEXT,
       saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE items ALTER COLUMN value DROP NOT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_version INTEGER NOT NULL DEFAULT 0;
+    CREATE INDEX IF NOT EXISTS items_user_id_id_idx ON items(user_id,id DESC);
+    CREATE TABLE IF NOT EXISTS api_usage(key TEXT NOT NULL,window_key TEXT NOT NULL,count INTEGER NOT NULL,PRIMARY KEY(key,window_key));
+
   `);
+  await pool.query('DELETE FROM api_usage WHERE window_key < $1',[new Date(Date.now()-2*86400000).toISOString().slice(0,10)]);
 }
 
-function auth(req,res,next){
- if(!req.session.userId)return res.status(401).json({error:"Sign in required."});
+async function auth(req,res,next){
+ if(!req.session.userId)return res.status(401).json({error:'Sign in required.'});
+ const user=await pool.query('SELECT id,auth_version FROM users WHERE id=$1',[req.session.userId]);
+ if(!user.rows.length || user.rows[0].auth_version !== (req.session.authVersion||0))return res.status(401).json({error:'Sign in required.'});
  next();
 }
-const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:8*1024*1024}});
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:8*1024*1024,files:1,fields:0,parts:2},
+ fileFilter(req,file,cb){cb(['image/jpeg','image/png','image/webp'].includes(file.mimetype)?null:new PublicError(415,'Use a JPEG, PNG or WebP image.'),true)}});
+app.get('/health',async(req,res)=>{
+ try{await pool.query('SELECT 1');res.json({ok:true,service:'snapworth',version:'1.0.0'})}
+ catch{res.status(503).json({ok:false})}
+});
+app.get('/api/site-info',(req,res)=>res.json({operator:env.SITE_OPERATOR||null,supportEmail:env.SUPPORT_EMAIL||null}));
 
-const requiredProd=["SESSION_SECRET"];
-if(process.env.NODE_ENV==="production"){
-  const missing=requiredProd.filter(k=>!process.env[k] || process.env[k].includes("change"));
-  if(missing.length) console.warn("WARNING: missing/weak production env:",missing.join(", "));
-}
-app.get("/health",(req,res)=>res.json({ok:true,service:"snapworth",version:"1.0.0"}));
-
-app.use(express.static("public"));
-
-function outputText(payload){
- return (payload.output||[]).flatMap(o=>o.content||[]).map(c=>c.text||"").join("").trim();
-}
-
+app.use(express.static(fileURLToPath(new URL('./public',import.meta.url))));
 
 app.post("/api/auth/register",authLimiter,async(req,res)=>{
  try{
-  const email=String(req.body.email||"").trim().toLowerCase();
-  const password=String(req.body.password||"");
+  if(env.NODE_ENV==='production' && env.PUBLIC_SIGNUP_ENABLED!=='true')throw new PublicError(503,'Public registration is not open yet.');
+  const email=text(req.body?.email,254,true).toLowerCase();
+  const password=req.body?.password;
+  if(typeof password!=='string' || Buffer.byteLength(password,'utf8')>72)throw new PublicError(400,'Password must be at most 72 UTF-8 bytes.');
 
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
    return res.status(400).json({error:"Enter a valid email."});
@@ -133,7 +172,7 @@ app.post("/api/auth/register",authLimiter,async(req,res)=>{
 
   const user=result.rows[0];
 
-  req.session.userId=String(user.id);
+  await signIn(req,user.id);
 
   res.json({
    user:{
@@ -143,19 +182,21 @@ app.post("/api/auth/register",authLimiter,async(req,res)=>{
   });
 
  }catch(e){
+  if(e instanceof PublicError)return res.status(e.status).json({error:e.message});
   if(e.code==="23505"){
    return res.status(409).json({error:"Account already exists."});
   }
 
-  console.error("Register error:",e);
+  console.error("Register error:");
   res.status(500).json({error:"Could not create account."});
  }
 });
 
 app.post("/api/auth/login",authLimiter,async(req,res)=>{
  try{
-  const email=String(req.body.email||"").trim().toLowerCase();
-  const password=String(req.body.password||"");
+  const email=text(req.body?.email,254,true).toLowerCase();
+  const password=req.body?.password;
+  if(typeof password!=='string')throw new PublicError(400,'Enter your password.'); // Preserve legacy bcrypt password semantics at login.
 
   const result=await pool.query(
    "SELECT id,email,password_hash FROM users WHERE email=$1",
@@ -168,7 +209,7 @@ app.post("/api/auth/login",authLimiter,async(req,res)=>{
    return res.status(401).json({error:"Invalid email or password."});
   }
 
-  req.session.userId=String(u.id);
+  await signIn(req,u.id);
 
   res.json({
    user:{
@@ -178,17 +219,40 @@ app.post("/api/auth/login",authLimiter,async(req,res)=>{
   });
 
  }catch(e){
-  console.error("Login error:",e);
+  if(e instanceof PublicError)return res.status(e.status).json({error:e.message});
+  console.error("Login error:");
   res.status(500).json({error:"Could not sign in."});
  }
 });
 
 app.post("/api/auth/logout",(req,res)=>{
- req.session.destroy(()=>{
+ req.session.destroy((error)=>{
+  if(error)return res.status(503).json({error:"Could not sign out. Please try again."});
+  res.clearCookie("connect.sid",cookieOptions);
   res.json({ok:true});
  });
 });
 
+
+app.post('/api/auth/password',auth,authLimiter,async(req,res)=>{
+ const password=req.body?.password,newPassword=req.body?.newPassword;
+ if(typeof password!=='string'||typeof newPassword!=='string'||newPassword.length<8||Buffer.byteLength(newPassword)>72)throw new PublicError(400,'Use a password of at least 8 characters and at most 72 UTF-8 bytes.');
+ const result=await pool.query('SELECT password_hash FROM users WHERE id=$1',[req.session.userId]);
+ if(!result.rows[0]||!await bcrypt.compare(password,result.rows[0].password_hash))throw new PublicError(401,'Current password is incorrect.');
+ const hash=await bcrypt.hash(newPassword,12),userId=req.session.userId;
+ await pool.query('UPDATE users SET password_hash=$1,auth_version=auth_version+1 WHERE id=$2',[hash,userId]);
+ await signIn(req,userId);
+ res.json({ok:true});
+});
+app.delete('/api/auth/account',auth,authLimiter,async(req,res)=>{
+ const password=req.body?.password;
+ if(typeof password!=='string')throw new PublicError(400,'Enter your current password.');
+ const result=await pool.query('SELECT password_hash FROM users WHERE id=$1',[req.session.userId]);
+ if(!result.rows[0]||!await bcrypt.compare(password,result.rows[0].password_hash))throw new PublicError(401,'Current password is incorrect.');
+ await pool.query('DELETE FROM users WHERE id=$1',[req.session.userId]);
+ // All other sessions immediately lose access because auth checks account existence.
+ req.session.destroy(()=>{res.clearCookie('connect.sid',cookieOptions);res.json({ok:true})});
+});
 
 app.get("/api/auth/me",async(req,res)=>{
  try{
@@ -197,39 +261,37 @@ app.get("/api/auth/me",async(req,res)=>{
   }
 
   const result=await pool.query(
-   "SELECT id,email FROM users WHERE id=$1",
+   "SELECT id,email,auth_version FROM users WHERE id=$1",
    [req.session.userId]
   );
 
   res.json({
-   user:result.rows[0]||null
+   user:result.rows[0] && result.rows[0].auth_version === (req.session.authVersion||0) ? {id:result.rows[0].id,email:result.rows[0].email} : null
   });
 
  }catch(e){
-  console.error("Auth check error:",e);
+  if(e instanceof PublicError)return res.status(e.status).json({error:e.message});
+  console.error("Auth check error:");
   res.status(500).json({error:"Could not check account."});
  }
 });
 
 
 
-function normalizeImagePayload(image){
- if(typeof image!=="string" || !image.startsWith("data:image/")) return null;
- // Prototype backend storage adapter. Replace this function with S3/R2/Supabase upload in production.
- return image.length < 1500000 ? image : null;
-}
-
 app.get("/api/items",auth,async(req,res)=>{
  try{
   const result=await pool.query(
-   "SELECT * FROM items WHERE user_id=$1 ORDER BY id DESC",
-   [req.session.userId]
+   `SELECT id,name,value,currency,condition,low,high,category,notes,saved_at,
+    (image_data IS NOT NULL) AS has_image FROM items WHERE user_id=$1 AND id<$2 ORDER BY id DESC LIMIT 101`,
+   [req.session.userId, /^\d{1,19}$/.test(String(req.query.before||'')) ? req.query.before : '9223372036854775807']
   );
 
-  res.json({items:result.rows});
+  const rows=result.rows.slice(0,100);
+  res.json({items:rows,nextCursor:result.rows.length>100?String(rows.at(-1).id):null});
 
  }catch(e){
-  console.error("Load items error:",e);
+  if(e instanceof PublicError)return res.status(e.status).json({error:e.message});
+  console.error("Load items error:");
   res.status(500).json({error:"Could not load items."});
  }
 });
@@ -237,17 +299,12 @@ app.get("/api/items",auth,async(req,res)=>{
 
 
 
-app.post("/api/items",auth,async(req,res)=>{
+app.post("/api/items",auth,saveLimiter,capacity,async(req,res)=>{
+ req.processing=true;
  try{
-  const x=req.body||{};
-
-  if(!x.name || !Number.isFinite(Number(x.value)) || !x.currency){
-   return res.status(400).json({error:"Invalid item."});
-  }
-
-  const imageData=normalizeImagePayload(x.image);
-  const notes=String(x.notes||"").slice(0,2000);
-
+  const x=itemInput(req.body);
+  const imageData=await storedImage(req.body.image);
+  const notes=x.notes;
   const result=await pool.query(
    `INSERT INTO items(
      user_id,
@@ -266,11 +323,11 @@ app.post("/api/items",auth,async(req,res)=>{
    [
     req.session.userId,
     String(x.name),
-    Number(x.value),
+    x.value,
     String(x.currency),
     String(x.condition||""),
-    Number.isFinite(Number(x.low)) ? Number(x.low) : null,
-    Number.isFinite(Number(x.high)) ? Number(x.high) : null,
+    x.low,
+    x.high,
     String(x.category||""),
     imageData,
     notes
@@ -280,9 +337,20 @@ app.post("/api/items",auth,async(req,res)=>{
   res.json({item:result.rows[0]});
 
  }catch(e){
-  console.error("Save item error:",e);
+  if(e instanceof PublicError)return res.status(e.status).json({error:e.message});
+  console.error("Save item error:");
   res.status(500).json({error:"Could not save item."});
- }
+ }finally{req.releaseCapacity()}
+});
+
+app.get('/api/items/:id/image',auth,capacity,async(req,res)=>{
+ req.processing=true;
+ try{
+   const result=await pool.query('SELECT image_data FROM items WHERE id=$1 AND user_id=$2',[req.params.id,req.session.userId]);
+   if(!result.rows[0]?.image_data)return res.sendStatus(404);
+   const image=await storedImage(result.rows[0].image_data);
+   res.type('image/jpeg').send(Buffer.from(image.split(',')[1],'base64'));
+ }finally{req.releaseCapacity()}
 });
 
 app.get("/api/items/:id",auth,async(req,res)=>{
@@ -301,7 +369,8 @@ app.get("/api/items/:id",auth,async(req,res)=>{
   res.json({item});
 
  }catch(e){
-  console.error("Load item error:",e);
+  if(e instanceof PublicError)return res.status(e.status).json({error:e.message});
+  console.error("Load item error:");
   res.status(500).json({error:"Could not load item."});
  }
 });
@@ -325,9 +394,7 @@ app.patch("/api/items/:id",auth,async(req,res)=>{
    x.notes ?? current.notes ?? ""
   ).slice(0,2000);
 
-  const condition=String(
-   x.condition ?? current.condition ?? ""
-  );
+  const condition=text(x.condition ?? current.condition ?? "",80);
 
   const result=await pool.query(
    `UPDATE items
@@ -345,7 +412,8 @@ app.patch("/api/items/:id",auth,async(req,res)=>{
   res.json({item:result.rows[0]});
 
  }catch(e){
-  console.error("Update item error:",e);
+  if(e instanceof PublicError)return res.status(e.status).json({error:e.message});
+  console.error("Update item error:");
   res.status(500).json({error:"Could not update item."});
  }
 });
@@ -364,63 +432,25 @@ app.delete("/api/items/:id",auth,async(req,res)=>{
   res.json({ok:true});
 
  }catch(e){
-  console.error("Delete item error:",e);
+  if(e instanceof PublicError)return res.status(e.status).json({error:e.message});
+  console.error("Delete item error:");
   res.status(500).json({error:"Could not delete item."});
  }
 });
 
 
-app.post("/api/identify",upload.single("image"),async(req,res)=>{
- if(!req.file)return res.status(400).json({error:"No image uploaded."});
- if(!process.env.OPENAI_API_KEY)return res.json({demo:true,item_name:"Example item",brand:"Apple",model:"iPhone 13 128GB",category:"Electronics",confidence:.72,notes:"Demo mode"});
+app.post('/api/identify',auth,identifyIpLimiter,capacity,budget('identify',aiDailyLimit,500),upload.single('image'),async(req,res)=>{
+ req.processing=true;
  try{
-  const dataUrl=`data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
-  const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Authorization":`Bearer ${process.env.OPENAI_API_KEY}`,"Content-Type":"application/json"},body:JSON.stringify({
-   model:process.env.OPENAI_MODEL||"gpt-5.6-luna",
-   input:[{role:"user",content:[
-    {type:"input_text",text:`You are the item-identification engine for a resale valuation app.
-
-Analyze the photo carefully. Pay special attention to:
-- visible brand names and logos
-- labels, stickers and printed text
-- model numbers, product codes and serial-like identifiers
-- distinctive shape, controls, ports, accessories and packaging
-- whether the item is generic or a specific branded product
-
-Return ONLY valid JSON in exactly this format:
-{
-  "item_name":"short resale-friendly product name",
-  "brand":"brand name or null",
-  "model":"exact model number/name or null",
-  "category":"Electronics|Tools|Games & Consoles|Collectibles|Furniture|Car Parts|Clothing|Watches|Toys|Home & Appliances|Other",
-  "confidence":0.0,
-  "notes":"brief explanation of uncertainty",
-  "search_query":"best concise international marketplace search query",
-"search_query_no":"best concise Norwegian marketplace search query for FINN.no and Facebook Marketplace",
-"needs_more_photos":false,
-  "photo_request":"what additional photo would help, or null"
-}
-
-Rules:
-- Never invent a brand or model.
-- Only provide a model when it is visible or strongly identifiable from reliable visual evidence.
-- Prefer exact brand + model over a generic description when supported.
-- If text or a model label may exist but is not readable, set needs_more_photos to true.
-- If the item is generic, say so.
-- search_query should be optimized for international resale search, usually brand + model + product type.
-- search_query_no must be written for Norwegian buyers and Norwegian marketplace terminology.
-- Translate the generic product type into Norwegian, but NEVER translate brand names, model names, model numbers, product codes or proper product names.
-- Example: "Nintendo GameCube Controller" -> search_query_no: "Nintendo GameCube kontroller".
-- Example: "Makita DDF484 Cordless Drill" -> search_query_no: "Makita DDF484 batteridrill".
-- Example: "Pokemon Colosseum Nintendo GameCube" -> keep the game title unchanged.
-- confidence must be between 0 and 1.
-- If another close-up photo of a label, underside, rear panel, packaging or logo would materially improve identification, explain exactly what photo is needed in photo_request.`},
-    {type:"input_image",image_url:dataUrl}
-   ]}]
-  })});
-  const p=await r.json();if(!r.ok)return res.status(r.status).json({error:p?.error?.message||"AI request failed"});
-  const text=outputText(p);const match=text.match(/\{[\s\S]*\}/);res.json(JSON.parse(match?match[0]:text));
- }catch(e){res.status(500).json({error:e.message})}
+ if(!env.OPENAI_API_KEY)throw new PublicError(503,'Image identification is not connected yet.');
+ if(!req.file)throw new PublicError(400,'No image uploaded.');
+ const bytes=await normalizeImage(req.file.buffer,req.file.mimetype);
+ const payload=await fetchJson(fetcher,'https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({
+   model:env.OPENAI_MODEL||'gpt-5.6-luna',store:false,
+   input:[{role:'user',content:[{type:'input_text',text:identificationPrompt},{type:'input_image',image_url:'data:image/jpeg;base64,'+bytes.toString('base64')}]}]
+ })},upstreamTimeout);
+ res.json(identification(payload));
+ }finally{req.releaseCapacity()}
 });
 
 const marketplaceMap={
@@ -430,274 +460,65 @@ const marketplaceMap={
 };
 
 
-async function ebayToken(){
- const id=process.env.EBAY_CLIENT_ID, secret=process.env.EBAY_CLIENT_SECRET;
- if(!id||!secret)return null;
- const basic=Buffer.from(`${id}:${secret}`).toString("base64");
- const r=await fetch("https://api.ebay.com/identity/v1/oauth2/token",{method:"POST",headers:{"Authorization":`Basic ${basic}`,"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope"});
- const d=await r.json();if(!r.ok)throw new Error(d.error_description||"eBay token request failed");return d.access_token;
+let cachedToken=null,tokenUntil=0,tokenPending=null;
+async function ebayToken(deadline=Date.now()+upstreamTimeout){
+ if(cachedToken && Date.now()<tokenUntil)return cachedToken;
+ if(tokenPending)return tokenPending;
+ tokenPending=(async()=>{
+   if(!env.EBAY_CLIENT_ID||!env.EBAY_CLIENT_SECRET)throw new PublicError(503,'Live pricing is not connected yet.');
+   const basic=Buffer.from(`${env.EBAY_CLIENT_ID}:${env.EBAY_CLIENT_SECRET}`).toString('base64');
+   const d=await fetchJson(fetcher,'https://api.ebay.com/identity/v1/oauth2/token',{method:'POST',headers:{Authorization:`Basic ${basic}`,'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'},Math.max(1,deadline-Date.now()));
+   if(typeof d.access_token!=='string'||!d.access_token)throw new PublicError(502,'Live pricing is temporarily unavailable.');
+   cachedToken=d.access_token;tokenUntil=Date.now()+Math.max(0,Math.min(Number(d.expires_in)||0,7200)-60)*1000;
+   return cachedToken;
+ })();
+ try{return await tokenPending}finally{tokenPending=null}
 }
-
-function median(a){const s=[...a].sort((x,y)=>x-y),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2}
-function quantile(a,q){const s=[...a].sort((x,y)=>x-y);const p=(s.length-1)*q,b=Math.floor(p),r=p-b;return s[b+1]!==undefined?s[b]+r*(s[b+1]-s[b]):s[b]}
-function robustValuation(prices,condition=1){
- const positive=prices.filter(x=>Number.isFinite(x)&&x>0).sort((a,b)=>a-b);
- if(positive.length<3)throw new Error("Not enough comparable listings.");
- const q1=quantile(positive,.25),q3=quantile(positive,.75),iqr=q3-q1,loFence=q1-1.5*iqr,hiFence=q3+1.5*iqr;
- const clean=positive.filter(x=>x>=loFence&&x<=hiFence);
- const med=median(clean),low=quantile(clean,.25),high=quantile(clean,.75);
- const fair=med*condition;
- return {clean,stats:{median:med,q1:low,q3:high},valuation:{quick:fair*.88,fair,top:fair*1.10,low:low*condition,high:high*condition}};
-}
-
-
-app.get("/api/comps",async(req,res)=>{
- const q=String(req.query.q||"").trim();
-const requestedMarket=String(req.query.market||"NORWAY");
-const condition=Math.max(.4,Math.min(1,Number(req.query.condition)||1));
-
-if(requestedMarket==="NORWAY"){
- return res.status(503).json({
-  pricingUnavailable:true,
-  source:"Norwegian market",
-  currency:"NOK",
-  market:"NORWAY",
-  error:"Automatic Norwegian market pricing is not connected yet. Use FINN.no and Facebook Marketplace search to check current Norwegian listings."
- });
-}
-
-const market=marketplaceMap[requestedMarket]||marketplaceMap.EBAY_US;
- if(!q){
-  return res.status(400).json({error:"Missing search query."});
- }
-
+app.get('/api/comps',auth,budget('comps',searchDailyLimit,2000),capacity,async(req,res)=>{
+ req.processing=true;
  try{
-  const token=await ebayToken();
-
-  if(!token){
-   return res.status(503).json({
-    pricingUnavailable:true,
-    source:"eBay not connected",
-    error:"Live market pricing is not available yet. eBay connection is pending."
-   });
-  }
-
-  const url=new URL("https://api.ebay.com/buy/browse/v1/item_summary/search");
-  url.searchParams.set("q",q);
-  url.searchParams.set("limit","50");
-  url.searchParams.set(
-  "filter",
-  "conditions:{USED},buyingOptions:{FIXED_PRICE}"
-);
-  const r=await fetch(url,{
-   headers:{
-    "Authorization":`Bearer ${token}`,
-    "X-EBAY-C-MARKETPLACE-ID":market.id
+ const q=text(req.query.q,240,true),requestedMarket=text(req.query.market||'NORWAY',20,true);
+ if(requestedMarket==='NORWAY')return res.status(503).json({pricingUnavailable:true,source:'Norwegian market',currency:'NOK',market:'NORWAY',error:'Automatic Norwegian pricing is not connected. Compare current listings on FINN.no or Facebook Marketplace.'});
+ const market=marketplaceMap[requestedMarket];
+ if(!market)throw new PublicError(400,'Unsupported marketplace.');
+ const condition=req.query.condition===undefined?1:Number(req.query.condition);
+ if(!Number.isFinite(condition)||condition<.4||condition>1)throw new PublicError(400,'Invalid condition.');
+ try{
+   const url=new URL('https://api.ebay.com/buy/browse/v1/item_summary/search');
+   url.searchParams.set('q',q);url.searchParams.set('limit','50');url.searchParams.set('filter','conditions:{USED},buyingOptions:{FIXED_PRICE}');
+   let d;const deadline=Date.now()+upstreamTimeout;
+   for(let attempt=0;attempt<2;attempt++){
+     const token=await ebayToken(deadline);
+     if(Date.now()>=deadline)throw new PublicError(504,'The request took too long. Please try again.');
+     try{d=await fetchJson(fetcher,url,{headers:{Authorization:`Bearer ${token}`,'X-EBAY-C-MARKETPLACE-ID':market.id}},Math.max(1,deadline-Date.now()));break}
+     catch(e){if(e.upstreamStatus!==401||attempt===1)throw e;cachedToken=null;tokenUntil=0}
    }
-  });
-
-  const d=await r.json();
-
-  if(!r.ok){
-   throw new Error(d?.errors?.[0]?.message||"eBay search failed");
-  }
-  const terms=q
-    .toLowerCase()
-    .split(/\s+/)
-    .map(t=>t.replace(/[^a-z0-9]+/g,""))
-    .filter(t=>t.length>1);
-
-  function normalizeText(text){
-  return String(text||"")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g,"")
-    .toLowerCase();
-}
-
-const normalizedQuery=normalizeText(q);
-
-  const accessoryWords=[
-    "memory card",
-    "memorycard",
-    "manual only",
-    "booklet only",
-    "instruction booklet only",
-    "guide",
-    "strategy guide",
-    "carry case",
-    "carrying case",
-    "carry bag",
-    "bag only",
-    "case only",
-    "box only",
-    "artwork only",
-    "inlay only",
-    "sleeve only",
-    "sticker",
-    "stickers",
-    "no disc",
-    "no game",
-    "for parts",
-    "not working"
-  ];
-
-  const bundleWords=[
-    "double pack",
-    "bundle",
-    "two disk",
-    "two disc",
-    "bonus disc",
-    "bonus expansion disc",
-    "pokemon box",
-    "celebi"
-  ];
-
-  const premiumWords=[
-    "collector",
-    "collectors",
-    "mint",
-    "sealed",
-    "rare",
-    "complete in box",
-    " cib ",
-    "cib",
-    "complete edition"
-  ];
-
-  function queryHasAny(words){
-    return words.some(w=>normalizedQuery.includes(w));
-  }
-
-  const queryWantsBundle=queryHasAny(bundleWords);
-  const queryWantsPremium=queryHasAny(premiumWords);
-
-  function regionPenalty(title){
-    const low=normalizeText(title);
-
-    const explicitPAL=
-      low.includes(" pal ") ||
-      low.includes("uk pal") ||
-      low.includes("european version");
-
-    const explicitNTSC=
-      low.includes("ntsc") ||
-      low.includes("ntsc-u") ||
-      low.includes("usa version");
-
-    const explicitJapan=
-      low.includes("japan") ||
-      low.includes("japanese") ||
-      low.includes("ntsc-j");
-
-    // UK and Germany: prefer PAL, reject explicit NTSC/Japan variants.
-    if(requestedMarket==="EBAY_GB" || requestedMarket==="EBAY_DE"){
-      if(explicitNTSC || explicitJapan) return 0.45;
-      if(explicitPAL) return 0;
-    }
-
-    // US: reject explicit PAL/Japan variants.
-    if(requestedMarket==="EBAY_US"){
-      if(explicitPAL || explicitJapan) return 0.45;
-      if(explicitNTSC) return 0;
-    }
-
-    return 0;
-  }
-
-  const items=(d.itemSummaries||[])
-    .map(x=>{
-      const title=x.title||"";
-      const low=normalizeText(title);
-
-      const matches=terms.filter(t=>low.includes(t)).length;
-      const baseScore=terms.length ? matches/terms.length : 0;
-
-      let penalty=0;
-
-      // Wrong accessory instead of the actual item.
-      if(accessoryWords.some(word=>
-        low.includes(word) &&
-        !normalizedQuery.includes(word)
-      )){
-        penalty+=1;
-      }
-
-      // Bundles are substantially different products.
-      if(!queryWantsBundle && bundleWords.some(word=>low.includes(word))){
-        penalty+=0.5;
-      }
-
-      // Collector/CIB premiums should not dominate a normal item search.
-      if(!queryWantsPremium && premiumWords.some(word=>low.includes(word))){
-        penalty+=0.32;
-      }
-
-      penalty+=regionPenalty(title);
-
-      const relevanceScore=Math.max(0,baseScore-penalty);
-
-      return {
-        title,
-        price:Number(x.price?.value),
-        condition:x.condition,
-        seller:x.seller?.username||"",
-        url:x.itemWebUrl,
-        matchScore:Number(relevanceScore.toFixed(3))
-      };
-    })
-    .filter(x=>
-      Number.isFinite(x.price) &&
-      x.price>0 &&
-      x.matchScore>=0.72
-    )
-    .sort((a,b)=>b.matchScore-a.matchScore);
-    
-  if(items.length<3){
-   return res.status(422).json({
-    pricingUnavailable:true,
-    source:"eBay Browse API",
-    error:"Not enough reliable comparable listings were found for this item."
-   });
-  }
-
-  const v=robustValuation(items.map(x=>x.price),condition);
-  const cleanedSet=new Set(v.clean.map(x=>String(x)));
-  const usable=items.filter(x=>cleanedSet.has(String(x.price)));
-
-  res.json({
-   demo:false,
-   source:"eBay Browse API",
-   currency:market.currency,
-   count:v.clean.length,
-   items:usable,
-   stats:v.stats,
-   valuation:v.valuation
-  });
-
+   const items=comparableItems(d.itemSummaries,q,market.id,market.currency);
+   if(items.length<3)return res.status(422).json({pricingUnavailable:true,source:'eBay Browse API',error:'Not enough matching listings in the selected currency. Include the product type and exact model in your search.'});
+   const v=robustValuation(items.map(x=>x.price),condition),clean=new Set(v.clean);
+   res.json({demo:false,source:'eBay Browse API',currency:market.currency,count:v.clean.length,items:items.filter(x=>clean.has(x.price)),stats:v.stats,valuation:v.valuation});
  }catch(e){
-  console.warn("eBay unavailable:",e.message);
-
-  res.status(503).json({
-   pricingUnavailable:true,
-   source:"eBay connection pending",
-   error:"Live market pricing is currently unavailable. Use Search this item to check current listings."
-  });
- }
+  res.status(e.status||503).json({pricingUnavailable:true,source:'eBay Browse API',error:e instanceof PublicError?e.message:'Live pricing is temporarily unavailable.'})}
+ }finally{req.releaseCapacity()}
 });
-async function startServer(){
-  try{
-    await initDatabase();
-
-    const port=process.env.PORT||3000;
-
-    app.listen(port,()=>{
-      console.log(`SnapWorth running on port ${port}`);
-    });
-
-  }catch(e){
-    console.error("Database startup failed:",e);
-    process.exit(1);
-  }
+app.use((error,req,res,next)=>{
+ if(res.headersSent)return next(error);
+ if(error instanceof PublicError)return res.status(error.status).json({error:error.message});
+ if(error instanceof multer.MulterError)return res.status(error.code==='LIMIT_FILE_SIZE'?413:400).json({error:'Upload one JPEG, PNG or WebP image, at most 8 MB.'});
+ if(error.type==='entity.too.large')return res.status(413).json({error:'Request is too large.'});
+ if(error instanceof SyntaxError && 'body' in error)return res.status(400).json({error:'Invalid JSON request.'});
+ console.error('Request failed',req.method,req.route?.path||'unknown');
+ res.status(503).json({error:'Service temporarily unavailable. Please try again.'});
+});
+return {app,pool,initDatabase};
 }
 
-startServer();
+async function startServer(){
+ dotenv.config();
+ const {app,pool,initDatabase}=createApp();
+ await initDatabase();
+ const server=app.listen(process.env.PORT||3000,()=>console.log('SnapWorth started'));
+ server.requestTimeout=30000;
+ process.once('SIGTERM',()=>server.close(()=>pool.end()));
+}
+if(process.argv[1] && fileURLToPath(import.meta.url)===process.argv[1])startServer().catch(()=>{console.error('Startup failed. Check database and production configuration.');process.exitCode=1});
